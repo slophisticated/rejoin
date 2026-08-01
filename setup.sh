@@ -1,0 +1,86 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Rejoin Engine Termux setup script
+# Run in Termux: chmod +x setup.sh && ./setup.sh
+
+set -e
+
+echo "Rejoin Engine Termux setup starting..."
+
+if ! command -v pkg >/dev/null 2>&1; then
+  echo "Error: 'pkg' not found. Run this script in Termux." >&2
+  exit 1
+fi
+
+echo "Updating packages..."
+pkg update -y || true
+pkg upgrade -y || true
+
+echo "Installing required packages: git, lua, coreutils, busybox, openssh..."
+pkg install -y git lua coreutils busybox openssh || true
+
+# Optional: luarocks and cjson
+echo "Attempting to install lua-cjson via luarocks (if luarocks installed)..."
+if command -v luarocks >/dev/null 2>&1; then
+  luarocks install lua-cjson || true
+else
+  echo "luarocks not found; if you need cjson support, install luarocks and run: luarocks install lua-cjson"
+fi
+
+# Create necessary folders
+echo "Creating runtime directories..."
+mkdir -p "$HOME/rejoin/data/autoexecute"
+mkdir -p "$HOME/rejoin/config"
+mkdir -p "$HOME/rejoin/assets"
+mkdir -p "$HOME/rejoin/logs"
+
+# If repository wasn't cloned to $HOME/rejoin, user should clone or push files there.
+if [ ! -f "$HOME/rejoin/main.lua" ]; then
+  echo "Warning: main.lua not found in $HOME/rejoin. Ensure you've copied/cloned the repository to $HOME/rejoin before running." 
+fi
+
+# Copy template config if config/config.lua missing
+if [ -f "$HOME/rejoin/config/config.lua" ]; then
+  echo "config/config.lua already exists — skipping copy."
+else
+  if [ -f "$HOME/rejoin/config/template.lua" ]; then
+    echo "Copying template config to config/config.lua"
+    cp "$HOME/rejoin/config/template.lua" "$HOME/rejoin/config/config.lua"
+  else
+    echo "No config/template.lua found in repository — please ensure files are present." >&2
+  fi
+fi
+
+# Copy sample AutoExecute to deploy folder if present
+if [ -f "$HOME/rejoin/config/sample_AutoExecute.lua" ]; then
+  echo "Installing sample AutoExecute to data/autoexecute"
+  cp "$HOME/rejoin/config/sample_AutoExecute.lua" "$HOME/rejoin/data/autoexecute/sample_AutoExecute.lua" || true
+fi
+
+# Ensure data log file exists
+touch "$HOME/rejoin/data/rejoin.log" || true
+
+echo "Setting file permissions (optional)"
+chmod -R u+rw "$HOME/rejoin" || true
+
+cat <<'EOF'
+
+Setup complete.
+
+Next steps (on device):
+  cd $HOME/rejoin
+  # Run interactive mode (wizard will run if config is new):
+  lua main.lua
+
+  # Or run a dry-run monitor simulation (no shell side effects):
+  lua main.lua --dry-run --headless --start-monitor
+
+  # Or run headless monitor for real (be careful - will execute am/pidof commands):
+  lua main.lua --headless --start-monitor
+
+If you need to enable root-powered injection or copying into app storage, set appAutoExecutePath in config/config.lua to the target app folder (requires root), or use su/tsu as appropriate.
+
+If any commands fail, inspect the log at data/rejoin.log and share it for troubleshooting.
+
+EOF
+
+exit 0

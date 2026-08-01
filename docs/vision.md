@@ -1,0 +1,1 @@
+Rejoin Engine bukan sekadar script auto rejoin. Tujuannya adalah menjadi automation framework modular untuk mengelola banyak instance Roblox di Android secara stabil, mudah dikembangkan, dan mudah dipelihara
