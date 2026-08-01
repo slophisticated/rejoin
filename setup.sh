@@ -15,8 +15,22 @@ echo "Updating packages..."
 pkg update -y || true
 pkg upgrade -y || true
 
-echo "Installing required packages: git, lua, coreutils, busybox, openssh..."
-pkg install -y git lua coreutils busybox openssh || true
+echo "Installing required packages: git, lua (or luajit), coreutils, busybox, openssh..."
+# Try to install lua; if not available, fall back to luajit
+if pkg install -y lua coreutils busybox git openssh >/dev/null 2>&1; then
+  echo "Installed lua and required packages"
+else
+  echo "Package 'lua' not available, trying luajit as fallback"
+  pkg install -y luajit coreutils busybox git openssh || true
+  # create a lua symlink to luajit if possible
+  if command -v luajit >/dev/null 2>&1; then
+    PREFIX="$(pkg prefix 2>/dev/null || echo /data/data/com.termux/files/usr)"
+    if [ -d "$PREFIX/bin" ]; then
+      ln -sf "$(command -v luajit)" "$PREFIX/bin/lua" || true
+      echo "Created symlink $PREFIX/bin/lua -> $(command -v luajit)"
+    fi
+  fi
+fi
 
 # Optional: luarocks and cjson
 echo "Attempting to install lua-cjson via luarocks (if luarocks installed)..."
