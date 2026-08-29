@@ -1,30 +1,27 @@
-# Rejoin Engine - DEEP LINK TEST v2 (PER-CLONE)
-# Test nomor 2 (roblox://placeId= TANPA target) sudah TERBUKTI auto-masuk map.
-# Sekarang kita cari cara agar deep link masuk ke CLONE TERTENTU (per-akun) tapi tetap auto-join.
-#
-# CARA: tutup semua Roblox/clone, buka Termux. Jalankan SATU PER SATU.
-# Untuk tiap variasi catat:
-#   (a) auto-masuk map / loading? ATAU cuma halaman game?
-#   (b) masuk ke akun/instance MANA (com.apengjers.v3? atau Roblox asli/akun lain?)
+# Rejoin Engine - DEBUG: verifikasi roblox_link.lua di DEVICE
+# Tujuan: memastikan file `utils/roblox_link.lua` di device menghasilkan deep link
+# `roblox://placeId=<id>`, bukan mengembalikan link https asli (yang menyebabkan tool
+# selalu membuka halaman game).
 
-CLONE=com.apengjers.v3
-PID=1077777341356
+# ============================================================
+# LANGKAH 1 - salin file debug ke device (dari PC), letakkan di folder proyek:
+#   debug_normalize.lua   ->   ~/rejoin/debug_normalize.lua
+# (cara: copy via termux-share / adb / atau tempel isinya manual)
 
-# A) -p CLONE + roblox://placeId= (target package, bukan -n)
-su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=107778070777162' -p com.apengjers.v4"
-~/rejoin $ su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=107778070777162' -p com.apengjers.v3"
-Starting: Intent { act=android.intent.action.VIEW dat=roblox://placeId=107778070777162 pkg=com.apengjers.v3 }
-~/rejoin $ su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=107778070777162' -p com.apengjers.v4"
-Starting: Intent { act=android.intent.action.VIEW dat=roblox://placeId=107778070777162 pkg=com.apengjers.v4 }
+# ============================================================
+# LANGKAH 2 - jalankan di Termux (dari folder ~/rejoin):
+lua debug_normalize.lua
 
-# B) gaya Tasker: -a VIEW, data uri via -U, package sebagai argumen (tanpa -d)
-su -c "am start -a android.intent.action.VIEW -U 'roblox://placeId=107778070777162' $CLONE"
+# ============================================================
+# LANGKAH 3 - cek baris yang mengandung konversi di file device:
+grep -n "roblox://placeId" utils/roblox_link.lua
+echo "---JUMLAH BARIS FILE DEVICE---"
+wc -l utils/roblox_link.lua
 
-# C) -p CLONE + --user 0 + roblox://placeId=
-su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=107778070777162' --user 0 -p $CLONE"
-
-# D) -p CLONE + aktivitas MAIN (launcher) fresh + roblox://placeId=
-su -c "am start -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d 'roblox://placeId=107778070777162' -p $CLONE"
-
-# E) tanpa -p tapi set CLONE sebagai default handler via --exclude-stopped? (pelengkap, pakai roblox://placeId=)
-su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=107778070777162' -S"
+# ============================================================
+# Cara membaca hasil:
+#  - Jika LANGKAH 2 mencetak "OUT: ok=true link=roblox://placeId=107778070777162"
+#    untuk link publik  -> file device SUDAH BENAR. Laporkan ke saya, kita cari bug lain.
+#  - Jika mencetak "OUT: ok=true link=https://www.roblox.com/games/107778070777162/Steal-An-Egg"
+#    (https asli, tidak dikonversi) -> file device MASIH LAMA. Timpal ulang
+#    utils/roblox_link.lua dari PC (versi 81 baris) ke device, lalu ulangi LANGKAH 2.
