@@ -58,6 +58,25 @@ function Recovery.launchAndJoin(instance)
         return false
     end
 
+    -- Wait for the clone to actually be running before sending the deep link.
+    -- Sending the join link immediately after launch hit the app while it was still
+    -- on the splash/loading screen, so Roblox just displayed the game's page instead
+    -- of auto-joining (mirrors the wait the monitor's recover path already does).
+    local checkTimeout = safeNumber(conf.checkTimeout, 15)
+    local waited = 0
+    while waited < checkTimeout do
+        if isHealthy(instance) then
+            break
+        end
+        Timer.sleep(1)
+        waited = waited + 1
+    end
+    if waited >= checkTimeout then
+        Logger.warn("Recovery.launchAndJoin: clone not running after " .. tostring(checkTimeout) .. "s for " .. tostring(instance.name or pkg))
+    end
+    -- Small settle so the main UI has a moment to come up before the join link lands.
+    Timer.sleep(safeNumber(conf.launchSettleDelay, 2))
+
     -- Join game from link (best-effort)
     openGameLink(instance)
 

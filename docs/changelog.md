@@ -126,6 +126,10 @@ Initial Project
 - `utils/android.lua openURL`: primary strategy is now **`am start -a VIEW -d '<url>' -p <clone>`**; the `-n <pkg>/com.roblox.client.ActivityProtocolLaunch` strategy (which only opened the game page) is removed. Untargeted VIEW remains as fallback.
 - On-device testing proved `roblox://placeId=<id>` delivers the clone's deep-link join directly into the map, and `-p com.apengjers.v3/v4` routes each to its own account.
 
+## v0.4.1 — wait for clone before joining
+
+- `managers/recovery.lua launchAndJoin`: now polls until the clone's process is running (up to `checkTimeout`, with a short `launchSettleDelay` settle) **before** sending the deep link. Previously the join link was sent immediately after launch, landing while the app was still on the splash screen, so Roblox showed the game's page instead of auto-joining. Mirrors the wait already done by the monitor's `recover` path.
+
 ## Upcoming
 
 - Shell Wrapper
