@@ -139,7 +139,13 @@ function Status.isFreezeTimeout(id)
     return (os.time() - s.stuckSince) >= freezeTimeout
 end
 
--- Print a human-readable status table (called each monitor cycle).
+-- Short human label for a status (keeps the summary one line per instance).
+local function shortLabel(status)
+    if status == "ingame" then return "running" end
+    return status or "unknown"
+end
+
+-- Print a compact, single-line status table (called each monitor cycle).
 function Status.printSummary(instances)
     print("\n--- Instance status ---")
     if not instances or #instances == 0 then
@@ -147,18 +153,14 @@ function Status.printSummary(instances)
         print("-----------------------")
         return
     end
+    local parts = {}
     for _, inst in ipairs(instances) do
-        local id = inst.id
-        local s = states[id] or {}
-        local status = s.status or "unknown"
-        local extra = ""
-        if status == "stuck" or status == "freeze" then
-            if s.stuckSince then
-                extra = string.format(" (since %s)", os.date("%H:%M:%S", s.stuckSince))
-            end
-        end
-        print(string.format("  id=%s %-28s -> %s%s", tostring(id), tostring(inst.name or inst.package or "?"), status, extra))
+        local id = inst.id or inst.name or "?"
+        local s = states[id]
+        local status = s and s.status or "unknown"
+        table.insert(parts, tostring(id) .. "=" .. shortLabel(status))
     end
+    print("  " .. table.concat(parts, "  "))
     print("-----------------------")
 end
 

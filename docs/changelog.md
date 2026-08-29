@@ -104,6 +104,15 @@ Initial Project
 - `utils/roblox_link.lua`: public game links now convert to **`robloxmobile://placeID=<placeId>`** (capital `ID`) — the scheme the clones register and that `ActivityProtocolLaunch` handles by joining the map directly — instead of `roblox://placeId=<placeId>` which only opened the game's page. `robloxmobile://` added to the accepted-scheme whitelist.
 - New setting `useRoot` (default `true`), editable via Settings → `14) Edit launch wait settings`.
 
+---
+
+## v0.3.8 — Quiet monitor + direct-join deep link
+
+- `core/logger.lua`: new console `logLevel` filter (default `INFO`). `Logger.debug` lines are now hidden unless `logLevel = "DEBUG"`, fixing the monitor being flooded with `su -c ...` and per-probe `pidof`/`pgrep`/`ps` debug spam every cycle. Set to DEBUG via Settings → `15) Edit logLevel` for troubleshooting.
+- `managers/status.lua printSummary`: status table rewritten as one compact line — e.g. `1=starting  2=running  3=freeze  4=recovery` — instead of the verbose multi-line log-style output.
+- New setting `logLevel` (default `INFO`), editable via Settings → `15) Edit logLevel`.
+- `utils/roblox_link.lua`: public game links now convert to **`roblox://experiences/start?placeId=<placeId>`** — the deep link form Roblox uses to START/join the game directly. Earlier formats (`roblox://experiences/<id>`, `roblox://placeId=...`, `robloxmobile://placeID=`) only opened the game's page on this client. Example: `https://www.roblox.com/games/110776611234/Steal-An-Egg` → `roblox://experiences/start?placeId=110776611234`.
+
 ## Upcoming
 
 - Shell Wrapper

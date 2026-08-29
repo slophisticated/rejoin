@@ -29,6 +29,30 @@ local function loadLogPathFromConfig()
     return nil
 end
 
+-- Minimum level that gets printed to the console. DEBUG is hidden unless the config
+-- sets `logLevel = "DEBUG"` (so the monitor doesn't flood with `su -c ...` / process
+-- probe lines every cycle). Read directly from the config file to avoid a circular
+-- dependency on core.config.
+local function loadLogLevelFromConfig()
+    local confPath = "config/config.lua"
+    if FileUtil.exists(confPath) then
+        local ok, conf = pcall(dofile, confPath)
+        if ok and type(conf) == "table" and conf.logLevel then
+            return tostring(conf.logLevel):upper()
+        end
+    end
+    return nil
+end
+
+local logLevel = loadLogLevelFromConfig() or "INFO"
+
+local levelsOrder = {
+    DEBUG = 1,
+    INFO = 2,
+    WARN = 3,
+    ERROR = 4,
+}
+
 local function ensureLogDir()
     local dir = logFilePath:match("^(.*)[/\\]")
     if dir and dir ~= "" then
@@ -64,6 +88,12 @@ local fromConfig = loadLogPathFromConfig()
 if fromConfig then logFilePath = fromConfig end
 
 local function log(level, message)
+    local levelOrder = levelsOrder[level] or levelsOrder.INFO
+    local minOrder = levelsOrder[logLevel] or levelsOrder.INFO
+    -- Hide messages below the configured console level (DEBUG hidden unless requested).
+    if levelOrder < minOrder then
+        return
+    end
     local line = string.format("[%s] [%s] %s", getTime(), level, tostring(message))
     print(line)
     pcall(function() appendLogToFile(line) end)
@@ -87,6 +117,17 @@ end
 
 function Logger.getLogPath()
     return logFilePath
+end
+
+-- Force the console verbosity from a config value ("DEBUG".."ERROR"), so a save via
+-- the Settings menu takes effect without a restart.
+function Logger.setLevel(level)
+    if level and type(level) == "string" then
+        local lvl = level:upper()
+        if levelsOrder[lvl] then
+            logLevel = lvl
+        end
+    end
 end
 
 function Logger.setLogPath(path)

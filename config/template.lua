@@ -7,6 +7,9 @@ return {
     recoveryRetries = 3,
     checkTimeout = 15,
     debug = true,
+    -- Console log verbosity. Hidden below this level: "DEBUG" shows everything,
+    -- "INFO" is the default (hides the monitor's per-probe/su debug spam).
+    logLevel = "INFO",
     autoExecuteDeployPath = "data/autoexecute",
     logPath = "data/rejoin.log",
     -- Optional fast filter for auto-detect clone scan (e.g. "com.apengjers."). Empty = disabled.

@@ -16,6 +16,7 @@ local function printSettings(conf)
     print("  recoveryRetries = " .. tostring(conf.recoveryRetries))
     print("  checkTimeout = " .. tostring(conf.checkTimeout))
     print("  debug = " .. tostring(conf.debug))
+    print("  logLevel = " .. tostring(conf.logLevel or "INFO"))
     print("  autoExecute = " .. tostring(conf.autoExecute))
     print("  autoExecuteDeployPath = " .. tostring(conf.autoExecuteDeployPath))
     print("  logPath = " .. tostring(conf.logPath))
@@ -36,6 +37,7 @@ function CLI.run()
     conf.recoveryRetries = conf.recoveryRetries or 3
     conf.checkTimeout = conf.checkTimeout or 15
     conf.debug = conf.debug == nil and true or conf.debug
+    conf.logLevel = conf.logLevel or "INFO"
     conf.autoExecute = conf.autoExecute or ""
     conf.autoExecuteDeployPath = conf.autoExecuteDeployPath or "data/autoexecute"
     conf.logPath = conf.logPath or "data/rejoin.log"
@@ -49,7 +51,7 @@ function CLI.run()
     if conf.useRoot == nil then conf.useRoot = true end
 
     while true do
-        print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit autoExecute global path\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Edit clonePackagePrefix\n 11) Edit freezeTimeout\n 12) Edit gracePeriod\n 13) Toggle anrCheckEnabled\n 14) Edit launch wait settings\n 15) Save and Exit\n 16) Exit without saving\n')
+        print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit autoExecute global path\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Edit clonePackagePrefix\n 11) Edit freezeTimeout\n 12) Edit gracePeriod\n 13) Toggle anrCheckEnabled\n 14) Edit launch wait settings\n 15) Edit logLevel\n 16) Save and Exit\n 17) Exit without saving\n')
         local choice = prompt("Choose: ") or ""
         choice = choice:match("^%s*(.-)%s*$")
         if choice == "1" then
@@ -117,17 +119,28 @@ function CLI.run()
                 end
             end
         elseif choice == "15" then
+            local v = prompt("logLevel (DEBUG/INFO/WARN/ERROR): [" .. tostring(conf.logLevel or "INFO") .. "] ")
+            if v and v ~= "" then
+                local lvl = v:upper()
+                if lvl == "DEBUG" or lvl == "INFO" or lvl == "WARN" or lvl == "ERROR" then
+                    conf.logLevel = lvl
+                else
+                    print("Invalid level (use DEBUG/INFO/WARN/ERROR)")
+                end
+            end
+        elseif choice == "16" then
             local ok, err = Config.save(conf)
             if ok then
                 print("Settings saved")
                 -- update logger path if changed
                 local Logger = require("core.logger")
                 if conf.logPath then Logger.setLogPath(conf.logPath) end
+                if conf.logLevel then Logger.setLevel(conf.logLevel) end
             else
                 print("Failed to save: " .. tostring(err))
             end
             break
-        elseif choice == "16" then
+        elseif choice == "17" then
             print("Aborting without saving")
             break
         else
