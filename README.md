@@ -18,7 +18,8 @@ Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termu
 - **Recovery** — force-stop → launch → inject AutoExecute → buka game/private server → lanjut monitoring. Dicoba berulang (sesuai `recoveryRetries`).
 - **AutoExecute (global)** — satu script dipakai semua instance.
 - **Auto Join** — buka link game/private server dari tiap instance secara otomatis saat recovery.
-- **CLI Menu** — Instances, Settings, Logs, Start Monitor.
+- **Manual Launch + Join** — shortcut di Main Menu untuk membuka app clone tertentu dan langsung join game-nya.
+- **CLI Menu** — Launch+Join, Instances, Settings, Logs, Start Monitor.
 
 ---
 
@@ -180,11 +181,12 @@ rejoin/
 ## Menu
 
 ### Main Menu
-- `1) Instances Manager`
-- `2) Settings`
-- `3) View Logs`
-- `4) Start Monitor`
-- `5) Exit`
+- `1) Launch + Join an instance` (pilih instance → buka app clone + join game dari link)
+- `2) Instances Manager`
+- `3) Settings`
+- `4) View Logs`
+- `5) Start Monitor`
+- `6) Exit`
 
 ### Instances Manager
 - List, Add, Edit, Delete instance

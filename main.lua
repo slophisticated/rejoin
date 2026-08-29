@@ -85,22 +85,45 @@ local function prompt(msg)
 end
 
 while true do
-    print('\nMain Menu:\n  1) Instances Manager\n  2) Settings\n  3) View Logs\n  4) Start Monitor\n  5) Exit\n')
+    print('\nMain Menu:\n  1) Launch + Join an instance\n  2) Instances Manager\n  3) Settings\n  4) View Logs\n  5) Start Monitor\n  6) Exit\n')
     local choice = prompt("Choose: ") or ""
     choice = choice:match("^%s*(.-)%s*$")
     if choice == "1" then
+        local Recovery = require("managers.recovery")
+        local list = InstanceManager.getAll()
+        if #list == 0 then
+            print("No instances configured.")
+        else
+            print("Instances:")
+            for _, inst in ipairs(list) do
+                print(string.format("  id=%s name=%s package=%s", tostring(inst.id), tostring(inst.name or ""), tostring(inst.package or "")))
+            end
+            local id = prompt("Instance id to launch + join: ") or ""
+            id = tonumber(id)
+            if not id then
+                print("Invalid id")
+            else
+                local inst = InstanceManager.findById(id)
+                if not inst then
+                    print("Instance not found")
+                else
+                    Recovery.launchAndJoin(inst)
+                end
+            end
+        end
+    elseif choice == "2" then
         local InstancesCLI = require("core.instances_cli")
         InstancesCLI.run()
-    elseif choice == "2" then
+    elseif choice == "3" then
         local SettingsCLI = require("core.settings_cli")
         SettingsCLI.run()
-    elseif choice == "3" then
+    elseif choice == "4" then
         local LogsCLI = require("core.logs_cli")
         LogsCLI.run()
-    elseif choice == "4" then
+    elseif choice == "5" then
         local Monitor = require("managers.monitor")
         Monitor.start(Config.get())
-    elseif choice == "5" then
+    elseif choice == "6" then
         print("Exiting main")
         break
     else

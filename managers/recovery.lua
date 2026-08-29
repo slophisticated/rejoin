@@ -23,6 +23,49 @@ local function isHealthy(instance)
     return false
 end
 
+-- Open the instance game/private-server link, normalizing it to a safe form first.
+-- Best-effort: logs and does not fail the caller on a bad/missing link.
+local function openGameLink(instance, conf)
+    local pkg = instance and instance.package
+    if not instance.privateServer then
+        return true
+    end
+    local normalizeGame = conf.normalizeGameLink and true or false
+    local okLink, link = RobloxLink.normalize(instance.privateServer, normalizeGame)
+    if okLink then
+        Logger.info("Recovery: opening game link for " .. tostring(instance.name or pkg) .. ": " .. tostring(link))
+        UtilsAndroid.openURL(link)
+        return true
+    end
+    Logger.warn("Recovery: skipping invalid game link for " .. tostring(instance.name or pkg) .. ": " .. tostring(link))
+    return false
+end
+
+-- Launch an instance's app and join its game (best-effort), no retry loop.
+-- Returns true if the app launch succeeded.
+function Recovery.launchAndJoin(instance)
+    local pkg = instance and instance.package
+    if not pkg then
+        Logger.error("Recovery.launchAndJoin: instance has no package")
+        return false
+    end
+
+    local conf = Config.get() or {}
+    Logger.info("Recovery.launchAndJoin: launching " .. tostring(instance.name or pkg))
+
+    local ok, err = APK.launch(pkg)
+    if not ok then
+        Logger.error("Recovery.launchAndJoin: launch failed for " .. tostring(instance.name or pkg) .. ": " .. tostring(err))
+        return false
+    end
+
+    -- Join game from link (best-effort)
+    openGameLink(instance, conf)
+
+    Logger.info("Recovery.launchAndJoin: done for " .. tostring(instance.name or pkg))
+    return true
+end
+
 -- Perform recovery for a single instance table (expects fields: package, privateServer)
 -- Includes retries and simple health checks
 function Recovery.checkAndRecover(instance)
@@ -86,15 +129,7 @@ function Recovery.checkAndRecover(instance)
             end
 
             -- Open game / private server URL if present (normalize to a safe form first)
-            if instance.privateServer then
-                local normalizeGame = conf.normalizeGameLink and true or false
-                local okLink, link = RobloxLink.normalize(instance.privateServer, normalizeGame)
-                if okLink then
-                    UtilsAndroid.openURL(link)
-                else
-                    Logger.warn("Recovery: skipping invalid game link for " .. tostring(instance.name or pkg) .. ": " .. tostring(link))
-                end
-            end
+            openGameLink(instance, conf)
 
             Logger.info("Recovery: completed successfully for " .. tostring(instance.name or pkg))
             return true

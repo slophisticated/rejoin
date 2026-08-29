@@ -29,6 +29,7 @@ Initial Project
   - Unknown/invalid links rejected safely
 - Recovery now opens the instance game/private-server link through the normalizer before `am start VIEW`
 - New settings: `clonePackagePrefix`, `normalizeGameLink`
+- Main Menu: new shortcut `Launch + Join an instance` (choose an instance, launch its app and open its game link manually via `Recovery.launchAndJoin`)
 
 ## Upcoming
 
