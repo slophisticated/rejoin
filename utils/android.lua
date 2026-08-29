@@ -10,7 +10,21 @@ end
 
 function Android.launch(packageName)
     Logger.info("Android: launching " .. tostring(packageName))
-    Shell.exec(string.format("am start -n %s/.MainActivity", packageName))
+    -- Prefer resolving the real launchable activity; fall back to monkey which needs no component
+    local cmd = string.format("cmd package resolve-activity --brief %s", packageName)
+    local ok, out = Shell.exec(cmd)
+    local component = nil
+    if ok and out then
+        for line in out:gmatch("[^\r\n]+") do
+            local comp = line:match("(%S+%/%S+)")
+            if comp then component = comp break end
+        end
+    end
+    if component then
+        Shell.exec(string.format("am start -W -n %s", component))
+    else
+        Shell.exec(string.format("monkey -p %s -c android.intent.category.LAUNCHER 1", packageName))
+    end
 end
 
 function Android.openURL(url)

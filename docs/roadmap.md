@@ -5,40 +5,39 @@
 - [x] Project Structure
 - [x] Logger
 - [x] State Manager
-
-- [ ] Shell Wrapper
-- [ ] Android Wrapper
-- [ ] Config Loader
-- [ ] Config Saver
-- [ ] Setup Wizard
+- [x] Shell Wrapper (utils/shell)
+- [x] Android Wrapper (utils/android)
+- [x] Config Loader (core/config)
+- [x] Config Saver (core/config)
+- [x] Setup Wizard (core/setup_wizard)
 
 ---
 
 ## Phase 2
 
-- [ ] Instance Manager
-- [ ] APK Manager
-- [ ] URL Launcher
-- [ ] Process Checker
-- [ ] PID Checker
+- [x] Instance Manager (managers/instance)
+- [x] APK Manager (managers/apk)
+- [x] URL Launcher (utils/android.openURL)
+- [x] Process Checker (managers/apk.isRunning)
+- [x] PID Checker (managers/apk.isRunning via pidof/pgrep/ps)
 
 ---
 
 ## Phase 3
 
-- [ ] Monitor Engine
-- [ ] Recovery Engine
-- [ ] AutoExecute
-- [ ] Auto Join
+- [x] Monitor Engine (managers/monitor)
+- [x] Recovery Engine (managers/recovery)
+- [x] AutoExecute (managers/autoexecute)
+- [ ] Auto Join (in-progress/private server open on recovery)
 
 ---
 
 ## Phase 4
 
 - [ ] Dashboard
-- [ ] Log Viewer
-- [ ] Package Editor
-- [ ] Settings Menu
+- [x] Log Viewer (core/logs_cli)
+- [ ] Package Editor (covered by Instances CLI)
+- [x] Settings Menu (core/settings_cli)
 
 ---
 

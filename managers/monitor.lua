@@ -58,13 +58,15 @@ function Monitor.start(conf)
                 else
                     -- mark as recovering and run recovery (synchronous). This avoids overlapping recoveries.
                     setRecovering(id, true)
-                    local ok, err = pcall(function()
+                    local p_ok, recovered = pcall(function()
                         return recoveryManager.checkAndRecover(inst)
                     end)
-                    if not ok or not err then
-                        Logger.error(string.format("Monitor: recovery failed for %s: %s", name, tostring(err)))
-                    else
+                    if not p_ok then
+                        Logger.error(string.format("Monitor: recovery raised an error for %s: %s", name, tostring(recovered)))
+                    elseif recovered then
                         Logger.info(string.format("Monitor: recovery succeeded for %s", name))
+                    else
+                        Logger.error(string.format("Monitor: recovery failed for %s (all attempts)", name))
                     end
                     setRecovering(id, false)
                 end

@@ -1,6 +1,6 @@
 -- Sample config for Rejoin Engine (adjust package names and paths for your device)
 return {
-    autoExecute = "data/autoexecute/global_AutoExecute.lua",
+    autoExecute = "data/autoexecute/sample_AutoExecute.lua",
     monitorInterval = 5,
     recoveryDelay = 3,
     recoveryRetries = 3,
@@ -15,15 +15,13 @@ return {
             id = 1,
             name = "Main",
             package = "com.roblox.client",
-            privateServer = "roblox://example_server_id",
-            autoExecutePath = "data/autoexecute/sample_AutoExecute.lua"
+            privateServer = "roblox://example_server_id"
         },
         {
             id = 2,
             name = "Clone1",
             package = "com.roblox.clone1",
-            privateServer = nil,
-            autoExecutePath = "data/autoexecute/sample_AutoExecute.lua"
+            privateServer = nil
         }
     }
 }

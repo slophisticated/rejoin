@@ -38,8 +38,10 @@ end
 
 -- Inject AutoExecute script into an instance. This attempts to copy into app storage (root) if possible, otherwise deploys to a shared folder.
 function AutoExecute.inject(instance)
-    local path = instance.autoExecutePath or (instance.autoExecute and instance.autoExecute.path)
-    if not path then
+    -- AutoExecute is global: instance path overrides, but the shared script is the default.
+    local conf = Config.get() or {}
+    local path = instance.autoExecutePath or (instance.autoExecute and instance.autoExecute.path) or conf.autoExecute
+    if not path or path == "" then
         Logger.debug("AutoExecute: no script path provided for instance")
         return false, "no_script"
     end
@@ -50,7 +52,6 @@ function AutoExecute.inject(instance)
     end
 
     -- Try best-effort su copy into app data (placeholder path). The exact destination depends on the target package and installation.
-    local conf = Config.get() or {}
     local appDestBase = conf.appAutoExecutePath or nil -- if set by user
     if appDestBase then
         local pkg = instance and instance.package or "unknown"
