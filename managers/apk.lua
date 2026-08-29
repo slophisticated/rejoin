@@ -20,37 +20,43 @@ function APKManager.resolveLaunchComponent(packageName)
     return nil
 end
 
--- Launch an APK by package name. This is a best-effort resolver for Termux/Android.
--- Tries the launchable activity via `cmd package resolve-activity`, falling back to
--- `monkey` (which does not need a hardcoded component) if resolution fails.
+-- Launch an APK by package name for Termux/Android.
+-- monkey is used FIRST because it does not depend on `cmd package resolve-activity`,
+-- which is often unavailable in a Termux (non-adb, non-root) shell. Resolving the
+-- component via resolve-activity is only a fallback and never blocks the launch.
 function APKManager.launch(packageName)
     Logger.info("APKManager: launching package: " .. tostring(packageName))
 
-    -- 1) Resolve the real launchable activity component (fixes hardcoded .MainActivity)
-    local component = APKManager.resolveLaunchComponent(packageName)
-    if component then
-        Logger.info("APKManager: resolved launch component: " .. tostring(component))
-        local ok, out = Shell.exec(string.format("am start -W -n %s", component))
-        if ok and out and out:find("Error", 1, true) == nil then
+    -- 1) Primary: monkey launches the main activity of a package by name (no component needed)
+    local cmd = string.format("monkey -p %s -c android.intent.category.LAUNCHER 1", packageName)
+    local ok, out = Shell.exec(cmd)
+    if ok and out then
+        -- monkey exits 0 even on some errors; only treat as success on injected events
+        if out:find("Events injected", 1, true) then
+            Logger.info("APKManager: monkey launch injected events for " .. tostring(packageName))
             return true, out
         end
-        Logger.warn("APKManager: am start failed, falling back to monkey: " .. tostring(out))
+        if out:find("Error", 1, true) == nil then
+            Logger.info("APKManager: monkey launch accepted for " .. tostring(packageName))
+            return true, out
+        end
+        Logger.warn("APKManager: monkey reported an error for " .. tostring(packageName) .. ": " .. tostring(out))
     else
-        Logger.warn("APKManager: could not resolve launch component for " .. tostring(packageName))
+        Logger.warn("APKManager: monkey launch failed/empty for " .. tostring(packageName))
     end
 
-    -- 2) Fallback: monkey launches the main activity of a package by name without a component
-    local cmd = string.format("monkey -p %s -c android.intent.category.LAUNCHER 1", packageName)
-    local ok2, out2 = Shell.exec(cmd)
-    if ok2 and out2 then
-        -- monkey exits 0 even on some errors; warn but don't block recovery
-        if out2:find("Events injected", 1, true) then
-            Logger.info("APKManager: monkey launch injected events for " .. tostring(packageName))
+    -- 2) Fallback: resolve the launchable activity then `am start` (best-effort)
+    local component = APKManager.resolveLaunchComponent(packageName)
+    if component then
+        Logger.info("APKManager: fallback resolved launch component: " .. tostring(component))
+        local ok2, out2 = Shell.exec(string.format("am start -n %s", component))
+        if ok2 and out2 and out2:find("Error", 1, true) == nil then
             return true, out2
         end
-        Logger.warn("APKManager: monkey reported no injected events for " .. tostring(packageName))
+        Logger.warn("APKManager: fallback am start failed for " .. tostring(packageName) .. ": " .. tostring(out2))
     end
-    return ok2 or false, out2
+
+    return false, out
 end
 
 function APKManager.forceStop(packageName)

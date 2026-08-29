@@ -20,7 +20,6 @@ local function printSettings(conf)
     print("  autoExecuteDeployPath = " .. tostring(conf.autoExecuteDeployPath))
     print("  logPath = " .. tostring(conf.logPath))
     print("  clonePackagePrefix = " .. tostring(conf.clonePackagePrefix or ""))
-    print("  normalizeGameLink = " .. tostring(conf.normalizeGameLink and true or false))
     print("  freezeTimeout = " .. tostring(conf.freezeTimeout))
     print("  gracePeriod = " .. tostring(conf.gracePeriod))
     print("  anrCheckEnabled = " .. tostring(conf.anrCheckEnabled and true or false))
@@ -37,13 +36,12 @@ function CLI.run()
     conf.autoExecuteDeployPath = conf.autoExecuteDeployPath or "data/autoexecute"
     conf.logPath = conf.logPath or "data/rejoin.log"
     conf.clonePackagePrefix = conf.clonePackagePrefix or ""
-    conf.normalizeGameLink = conf.normalizeGameLink == nil and false or conf.normalizeGameLink
     conf.freezeTimeout = conf.freezeTimeout or 300
     conf.gracePeriod = conf.gracePeriod or 30
     conf.anrCheckEnabled = conf.anrCheckEnabled ~= false
 
     while true do
-        print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit autoExecute global path\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Edit clonePackagePrefix\n 11) Toggle normalizeGameLink\n 12) Edit freezeTimeout\n 13) Edit gracePeriod\n 14) Toggle anrCheckEnabled\n 15) Save and Exit\n 16) Exit without saving\n')
+        print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit autoExecute global path\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Edit clonePackagePrefix\n 11) Edit freezeTimeout\n 12) Edit gracePeriod\n 13) Toggle anrCheckEnabled\n 14) Save and Exit\n 15) Exit without saving\n')
         local choice = prompt("Choose: ") or ""
         choice = choice:match("^%s*(.-)%s*$")
         if choice == "1" then
@@ -80,20 +78,17 @@ function CLI.run()
             local v = prompt("clonePackagePrefix (empty to disable): [" .. tostring(conf.clonePackagePrefix) .. "] ")
             if v and v ~= "" then conf.clonePackagePrefix = v end
         elseif choice == "11" then
-            conf.normalizeGameLink = not (conf.normalizeGameLink and true or false)
-            print("normalizeGameLink = " .. tostring(conf.normalizeGameLink and true or false))
-        elseif choice == "12" then
             local v = prompt("freezeTimeout (seconds before relaunch): [" .. tostring(conf.freezeTimeout) .. "] ")
             local n = tonumber(v)
             if n and n > 0 then conf.freezeTimeout = n else print("Invalid number") end
-        elseif choice == "13" then
+        elseif choice == "12" then
             local v = prompt("gracePeriod (seconds after launch): [" .. tostring(conf.gracePeriod) .. "] ")
             local n = tonumber(v)
             if n and n > 0 then conf.gracePeriod = n else print("Invalid number") end
-        elseif choice == "14" then
+        elseif choice == "13" then
             conf.anrCheckEnabled = not (conf.anrCheckEnabled and true or false)
             print("anrCheckEnabled = " .. tostring(conf.anrCheckEnabled and true or false))
-        elseif choice == "15" then
+        elseif choice == "14" then
             local ok, err = Config.save(conf)
             if ok then
                 print("Settings saved")
@@ -104,7 +99,7 @@ function CLI.run()
                 print("Failed to save: " .. tostring(err))
             end
             break
-        elseif choice == "16" then
+        elseif choice == "15" then
             print("Aborting without saving")
             break
         else

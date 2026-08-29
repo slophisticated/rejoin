@@ -42,16 +42,17 @@ end
 
 -- Normalize a Roblox link to the safest form to hand to `am start VIEW`.
 --
--- Rules (non-destructive by default):
+-- Rules:
+--   * /share?code=...&type=Server (private server) is ALWAYS returned unchanged
+--     (there is no placeId, the code determines the server; reshaping would break it).
+--   * Public game links (https://www.roblox.com/games/<placeId> or
+--     roblox://experiences/<placeId>) are converted to roblox://experiences/<placeId>,
+--     the deep link Roblox uses to join the place directly (an https URL only wakes the
+--     app without joining the game).
 --   * Links we cannot identify are returned unchanged.
---   * /share?code=...&type=Server (private server) is ALWAYS returned unchanged.
---   * If allowNormalizeGame is true and the link is a public game link
---     (https://www.roblox.com/games/<placeId> or roblox://experiences/<placeId>),
---     it is converted to roblox://experiences/<placeId> for a more reliable deep link.
---   * Otherwise the link is returned unchanged.
 --
 -- Returns (ok, normalized_url_or_err).
-function RobloxLink.normalize(url, allowNormalizeGame)
+function RobloxLink.normalize(url)
     if not looksLikeUrl(url) then
         return false, "invalid_url"
     end
@@ -63,11 +64,10 @@ function RobloxLink.normalize(url, allowNormalizeGame)
         return true, trimmed
     end
 
-    if allowNormalizeGame then
-        local placeId = extractPlaceId(trimmed)
-        if placeId then
-            return true, string.format("roblox://experiences/%s", placeId)
-        end
+    -- Public game link -> always use the roblox:// deep link for a direct join.
+    local placeId = extractPlaceId(trimmed)
+    if placeId then
+        return true, string.format("roblox://experiences/%s", placeId)
     end
 
     -- Default: hand it back unchanged.

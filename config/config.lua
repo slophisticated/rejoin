@@ -10,7 +10,6 @@ return {
     logPath = "data/rejoin.log",
     -- Optional fast filter for auto-detect clone scan (e.g. "com.apengjers."). Empty = disabled.
     clonePackagePrefix = "",
-    normalizeGameLink = false,
     freezeTimeout = 300,
     gracePeriod = 30,
     anrCheckEnabled = true,

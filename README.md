@@ -14,6 +14,7 @@ Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termu
   - `package` (package name clone, contoh `com.apengjers.v3`)
   - `privateServer` (link game / private server)
 - **Auto Detect Clone** — Setup Wizard otomatis mendeteksi app/clone Roblox yang terinstall lewat `cmd package resolve-activity`, jadi clone dengan package name di-rename (mis. `com.apengjers.v3`) tetap ketahuan.
+- **Launch via monkey** — membuka app clone memakai `monkey` (tidak butuh `cmd package resolve-activity`, yang sering tidak tersedia di Termux non-root); resolve-activity hanya cadangan.
 - **Monitor** — loop tunggal, cek tiap instance bergantian. Jika satu instance mati, hanya instance itu yang di-recovery; instance lain tetap diproses.
 - **Live status per instance** — monitor menampilkan status tiap instance (`offline`, `starting`, `ingame`, `stuck`, `freeze`, `recovery`) setiap siklus.
 - **Auto relaunch freeze** — app yang freeze/stuck lebih dari `freezeTimeout` (default 5 menit) otomatis di-force-stop & di-relaunch.
@@ -103,9 +104,6 @@ return {
 
     -- Filter cepat opsional untuk Auto Detect (mis. "com.apengjers."). Kosong = nonaktif.
     clonePackagePrefix = "",
-    -- Ubah link game publik ke roblox://experiences/<placeId> sebelum dibuka.
-    -- Link private /share SELALU dibuka apa adanya, apa pun nilai ini.
-    normalizeGameLink = false,
 
     -- Deteksi freeze/stuck.
     freezeTimeout = 300,        -- detik app boleh freeze sebelum di-relaunch (5 menit)
@@ -142,7 +140,7 @@ Field `privateServer` (atau link game) menerima beberapa format:
 Catatan link:
 - Link dikirim ke `am start VIEW` setelah dinormalisasi dengan aman.
 - Link **private server `/share` selalu dibuka apa adanya** (tidak diubah).
-- Jika `normalizeGameLink = true`, link game publik dikonversi ke `roblox://experiences/<placeId>`.
+- Link **game publik otomatis dikonversi ke deep link** `roblox://experiences/<placeId>` agar Roblox langsung join place (URL https hanya membangunkan app tanpa masuk game).
 - Link yang tidak valid / berisi karakter berbahaya akan ditolak.
 
 ---
@@ -202,7 +200,7 @@ rejoin/
 - `monitorInterval`, `recoveryDelay`, `recoveryRetries`, `checkTimeout`
 - `debug` (toggle)
 - `autoExecute` (global), `autoExecuteDeployPath`, `logPath`
-- `clonePackagePrefix`, `normalizeGameLink`
+- `clonePackagePrefix`
 - `freezeTimeout` (detik sebelum relaunch app freeze), `gracePeriod`, `anrCheckEnabled`
 
 ---

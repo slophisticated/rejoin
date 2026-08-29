@@ -11,9 +11,6 @@ return {
     logPath = "data/rejoin.log",
     -- Optional fast filter for auto-detect clone scan (e.g. "com.apengjers."). Empty = disabled.
     clonePackagePrefix = "",
-    -- Convert public game links to roblox://experiences/<placeId> before opening. Private
-    -- /share links are always opened as-is regardless of this setting.
-    normalizeGameLink = false,
     -- Seconds an app may stay frozen/stuck before the monitor force-relaunches it.
     freezeTimeout = 300,
     -- Seconds after launch that a running app is still considered "starting" before it

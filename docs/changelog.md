@@ -42,6 +42,15 @@ Initial Project
 - Monitor prints a live per-instance status table each cycle.
 - New settings: `freezeTimeout`, `gracePeriod`, `anrCheckEnabled`.
 
+---
+
+## v0.3.1 — Fix launch & public link
+
+- Launch now uses `monkey -p <pkg> -c LAUNCHER 1` FIRST (works in Termux without `cmd package resolve-activity`, which is unavailable in a non-root Termux shell); resolve-activity is only a fallback and no longer blocks the launch. Fixes instances not opening.
+- Public game links are now ALWAYS converted to the deep link `roblox://experiences/<placeId>` so Roblox joins the place directly (an https URL only wakes the app without entering the game).
+- Removed the `normalizeGameLink` setting/config/menu option (public links always deep-link; private `/share` links are still opened as-is).
+- `utils/android.lua` launch updated to match the monkey-first strategy.
+
 ## Upcoming
 
 - Shell Wrapper
