@@ -120,6 +120,12 @@ Initial Project
 - `utils/android.lua openURL`: public-game links are now delivered by forcing the clone's **`ActivityProtocolLaunch`** handler via `am start -a VIEW -d '<url>' -n <pkg>/com.roblox.client.ActivityProtocolLaunch`, instead of the old `-p <pkg>` (which lets Android pick an activity that only shows the game's page). Falls back to `-p <pkg>` then an untargeted VIEW, logging which strategy ran.
 - `utils/roblox_link.lua`: public links convert back to **`robloxmobile://placeID=<placeId>`** — the form that `ActivityProtocolLaunch` on the App Cloner clones joins straight into the map (verified on the cloned Roblox activity set and the Android direct-join path).
 
+## v0.4.0 — roblox://placeId= auto-join via -p (proven per-clone)
+
+- `utils/roblox_link.lua`: public game links convert to **`roblox://placeId=<placeId>`** (was `robloxmobile://placeID=` / earlier `roblox://experiences/start?placeId=`).
+- `utils/android.lua openURL`: primary strategy is now **`am start -a VIEW -d '<url>' -p <clone>`**; the `-n <pkg>/com.roblox.client.ActivityProtocolLaunch` strategy (which only opened the game page) is removed. Untargeted VIEW remains as fallback.
+- On-device testing proved `roblox://placeId=<id>` delivers the clone's deep-link join directly into the map, and `-p com.apengjers.v3/v4` routes each to its own account.
+
 ## Upcoming
 
 - Shell Wrapper

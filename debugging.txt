@@ -1,18 +1,30 @@
-# Rejoin Engine - diagnostic commands for Termux
-# Buka 1 clone delta (misal com.apengjers.v3), lalu jalankan perintah-perintah di bawah
-# SATU PER SATU di Termux, dan kirim hasil outputnya ke sini.
+# Rejoin Engine - DEEP LINK TEST v2 (PER-CLONE)
+# Test nomor 2 (roblox://placeId= TANPA target) sudah TERBUKTI auto-masuk map.
+# Sekarang kita cari cara agar deep link masuk ke CLONE TERTENTU (per-akun) tapi tetap auto-join.
+#
+# CARA: tutup semua Roblox/clone, buka Termux. Jalankan SATU PER SATU.
+# Untuk tiap variasi catat:
+#   (a) auto-masuk map / loading? ATAU cuma halaman game?
+#   (b) masuk ke akun/instance MANA (com.apengjers.v3? atau Roblox asli/akun lain?)
 
-# 1) Perintah TERPENTING: cek process utama clone (muncul angka = process persis ber-nama ini)
-pidof com.apengjers.v3
+CLONE=com.apengjers.v3
+PID=1077777341356
 
-# 2) Cek process yang tersisa dengan nama apengjers
-pgrep -af apengjers
+# A) -p CLONE + roblox://placeId= (target package, bukan -n)
+su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=107778070777162' -p com.apengjers.v4"
+~/rejoin $ su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=107778070777162' -p com.apengjers.v3"
+Starting: Intent { act=android.intent.action.VIEW dat=roblox://placeId=107778070777162 pkg=com.apengjers.v3 }
+~/rejoin $ su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=107778070777162' -p com.apengjers.v4"
+Starting: Intent { act=android.intent.action.VIEW dat=roblox://placeId=107778070777162 pkg=com.apengjers.v4 }
 
-# 3) Daftar process yang mengandung "roblox"
-ps -A | grep -i roblox
+# B) gaya Tasker: -a VIEW, data uri via -U, package sebagai argumen (tanpa -d)
+su -c "am start -a android.intent.action.VIEW -U 'roblox://placeId=107778070777162' $CLONE"
 
-# 4) Daftar semua process yang mengandung "apengjers"
-ps -A | grep -i apengjers
+# C) -p CLONE + --user 0 + roblox://placeId=
+su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=107778070777162' --user 0 -p $CLONE"
 
-# 5) Kalau "ps -A" error "garbage option", gunakan ini:
-ps | grep -i apengjers
+# D) -p CLONE + aktivitas MAIN (launcher) fresh + roblox://placeId=
+su -c "am start -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d 'roblox://placeId=107778070777162' -p $CLONE"
+
+# E) tanpa -p tapi set CLONE sebagai default handler via --exclude-stopped? (pelengkap, pakai roblox://placeId=)
+su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=107778070777162' -S"

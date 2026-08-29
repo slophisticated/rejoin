@@ -54,16 +54,15 @@ function Android.launch(packageName)
 end
 
 -- Open a URL. When packageName is provided, the VIEW intent is delivered to that
--- package so a scheme (e.g. robloxmobile://placeID=<id>) goes to the right clone
--- instead of Android picking a single shared default handler.
+-- clone package (-p <pkg>). On-device probing showed this per-clone form
+--     am start -a VIEW -d 'roblox://placeId=<id>' -p <clone>
+-- both auto-joins the map AND uses the right clone/account, whereas the untargeted
+-- form only reaches a single default handler and -n <pkg>/...ActivityProtocolLaunch
+-- only showed the game page.
 --
 -- Strategies, tried in order (each logs its result so the active one is visible):
---   1) am start -a VIEW -d '<url>' -n <pkg>/com.roblox.client.ActivityProtocolLaunch
---      Forces the clone's ActivityProtocolLaunch (the deep-link->join handler) instead of
---      letting Android pick another activity (e.g. the web page) which only shows the game
---      page. This is the form that joins straight into the map on Android.
---   2) am start -a VIEW -d '<url>' -p <pkg>   (targeted package, legacy)
---   3) am start -a VIEW -d '<url>'            (untargeted fallback)
+--   1) am start -a VIEW -d '<url>' -p <pkg>   (targeted clone, auto-join + per-account)
+--   2) am start -a VIEW -d '<url>'            (untargeted fallback)
 function Android.openURL(url, packageName)
     Logger.info("Android: opening URL " .. tostring(url) .. " (pkg=" .. tostring(packageName) .. ")")
 
@@ -71,18 +70,7 @@ function Android.openURL(url, packageName)
         return out ~= nil and out:find("Error", 1, true) == nil
     end
 
-    -- 1) Force ActivityProtocolLaunch if this is a Roblox clone.
-    if packageName and packageName ~= "" then
-        local proto = packageName .. "/com.roblox.client.ActivityProtocolLaunch"
-        local ok1, out1 = Shell.exec(string.format("am start -a android.intent.action.VIEW -d '%s' -n %s", url, proto))
-        if ok1 and accepted(out1) then
-            Logger.info("Android: openURL via ActivityProtocolLaunch (" .. tostring(proto) .. ")")
-            return true, out1
-        end
-        Logger.warn("Android: ActivityProtocolLaunch openURL failed (" .. tostring(out1) .. "), retrying -p")
-    end
-
-    -- 2) Targeted package.
+    -- 1) Targeted clone package.
     if packageName and packageName ~= "" then
         local ok, out = Shell.exec(string.format("am start -a android.intent.action.VIEW -d '%s' -p %s", url, packageName))
         if ok and accepted(out) then
@@ -92,7 +80,7 @@ function Android.openURL(url, packageName)
         Logger.warn("Android: targeted openURL failed for " .. tostring(packageName) .. ", retrying without target: " .. tostring(out))
     end
 
-    -- 3) Untargeted.
+    -- 2) Untargeted.
     return Shell.exec(string.format("am start -a android.intent.action.VIEW -d '%s'", url))
 end
 
