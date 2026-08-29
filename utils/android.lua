@@ -10,9 +10,24 @@ end
 
 function Android.launch(packageName)
     Logger.info("Android: launching " .. tostring(packageName))
-    -- monkey first: does not depend on `cmd package resolve-activity`, which may be
-    -- unavailable in a Termux (non-adb, non-root) shell. Resolve is only a fallback.
-    local ok, out = Shell.exec(string.format("monkey -p %s -c android.intent.category.LAUNCHER 1", packageName))
+    -- am start MAIN/LAUNCHER targeting the package explicitly first: it starts the
+    -- package's own launcher task and does not depend on `cmd package resolve-activity`
+    -- (often unavailable in a Termux non-adb/non-root shell). monkey is the fallback.
+    local cmd = string.format("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p %s", packageName)
+    local ok, out = Shell.exec(cmd)
+    if ok and out then
+        local failed = false
+        for _, h in ipairs({ "Error", "Failure", "Exception", "does not exist", "Activity not started" }) do
+            if out:find(h, 1, true) then failed = true break end
+        end
+        if not failed then
+            Logger.info("Android: am start accepted for " .. tostring(packageName))
+            return true
+        end
+    end
+
+    cmd = string.format("monkey -p %s -c android.intent.category.LAUNCHER 1", packageName)
+    ok, out = Shell.exec(cmd)
     if ok and out and out:find("Events injected", 1, true) then
         Logger.info("Android: monkey launch injected events for " .. tostring(packageName))
         return true
@@ -22,7 +37,7 @@ function Android.launch(packageName)
         return true
     end
 
-    local cmd = string.format("cmd package resolve-activity --brief %s", packageName)
+    cmd = string.format("cmd package resolve-activity --brief %s", packageName)
     local rok, rout = Shell.exec(cmd)
     local component = nil
     if rok and rout then
@@ -38,9 +53,19 @@ function Android.launch(packageName)
     return false
 end
 
-function Android.openURL(url)
-    Logger.info("Android: opening URL " .. tostring(url))
-    Shell.exec(string.format("am start -a android.intent.action.VIEW -d '%s'", url))
+-- Open a URL. When packageName is provided, the VIEW intent is targeted at that package
+-- so a scheme (e.g. roblox://experiences/<placeId>) is delivered to the right clone
+-- instead of Android picking a single default handler shared by several clones.
+function Android.openURL(url, packageName)
+    Logger.info("Android: opening URL " .. tostring(url) .. " (pkg=" .. tostring(packageName) .. ")")
+    if packageName and packageName ~= "" then
+        local ok, out = Shell.exec(string.format("am start -a android.intent.action.VIEW -d '%s' -p %s", url, packageName))
+        if ok and out and out:find("Error", 1, true) == nil then
+            return true, out
+        end
+        Logger.warn("Android: targeted openURL failed for " .. tostring(packageName) .. ", retrying without target: " .. tostring(out))
+    end
+    return Shell.exec(string.format("am start -a android.intent.action.VIEW -d '%s'", url))
 end
 
 return Android

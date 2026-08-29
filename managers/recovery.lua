@@ -33,7 +33,7 @@ local function openGameLink(instance)
     local okLink, link = RobloxLink.normalize(instance.privateServer)
     if okLink then
         Logger.info("Recovery: opening game link for " .. tostring(instance.name or pkg) .. ": " .. tostring(link))
-        UtilsAndroid.openURL(link)
+        UtilsAndroid.openURL(link, pkg)
         return true
     end
     Logger.warn("Recovery: skipping invalid game link for " .. tostring(instance.name or pkg) .. ": " .. tostring(link))

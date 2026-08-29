@@ -14,7 +14,7 @@ Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termu
   - `package` (package name clone, contoh `com.apengjers.v3`)
   - `privateServer` (link game / private server)
 - **Auto Detect Clone** — Setup Wizard otomatis mendeteksi app/clone Roblox yang terinstall lewat `cmd package resolve-activity`, jadi clone dengan package name di-rename (mis. `com.apengjers.v3`) tetap ketahuan.
-- **Launch via monkey** — membuka app clone memakai `monkey` (tidak butuh `cmd package resolve-activity`, yang sering tidak tersedia di Termux non-root); resolve-activity hanya cadangan.
+- **Launch tiap clone ditarget package** — membuka app clone lewat `am start -a MAIN -c LAUNCHER -p <pkg>` (menarget package eksplisit, jadi tiap clone dibuka sbg task sendiri; tidak butuh `cmd package resolve-activity` yang sering tidak tersedia di Termux non-root). `monkey` & resolve-activity hanya cadangan.
 - **Monitor** — loop tunggal, cek tiap instance bergantian. Jika satu instance mati, hanya instance itu yang di-recovery; instance lain tetap diproses.
 - **Live status per instance** — monitor menampilkan status tiap instance (`offline`, `starting`, `ingame`, `stuck`, `freeze`, `recovery`) setiap siklus.
 - **Auto relaunch freeze** — app yang freeze/stuck lebih dari `freezeTimeout` (default 5 menit) otomatis di-force-stop & di-relaunch.
@@ -138,7 +138,7 @@ Field `privateServer` (atau link game) menerima beberapa format:
 | Roblox deep link | `roblox://experiences/107778070777162` |
 
 Catatan link:
-- Link dikirim ke `am start VIEW` setelah dinormalisasi dengan aman.
+- Link dikirim ke `am start VIEW` setelah dinormalisasi dengan aman, dan **ditarget ke package clone** (`-p <pkg>`) agar deep link `roblox://` masuk ke clone yang benar, bukan handler default bersama.
 - Link **private server `/share` selalu dibuka apa adanya** (tidak diubah).
 - Link **game publik otomatis dikonversi ke deep link** `roblox://experiences/<placeId>` agar Roblox langsung join place (URL https hanya membangunkan app tanpa masuk game).
 - Link yang tidak valid / berisi karakter berbahaya akan ditolak.
