@@ -65,11 +65,20 @@ function Recovery.launchAndJoin(instance)
     return true
 end
 
--- Wait until an instance's app process is observed running (isRunning true), with a
--- short settle delay after it is detected. Used by "Launch All" to launch clones one at
--- a time so each floating-window clone has a chance to come up before the next is started.
--- Options (all optional): interval, timeout, settleDelay.
--- Returns true if the process was detected, false on timeout.
+-- Wait until an instance's app process is observed running, with a short settle delay
+-- after it is detected. Used by "Launch All" to launch clones one at a time so each
+-- floating-window clone has a chance to come up before the next is started.
+--
+-- For App Cloner clones the underlying process is `com.roblox.client` (not the package),
+-- so a per-package `isRunning` check can never match. `opts.target` lets the caller pass
+-- the number of shared processes that must be up (e.g. count >= baseline + cloneIndex),
+-- detected via APK.countProcess(processCheckName).
+--
+-- Options (all optional): interval, timeout, settleDelay, target.
+--   * target:  number of processes of `processCheckName` that must be running.
+--   * processCheckName: base process to count (default conf.processCheckName or com.roblox.client).
+-- If target is given, wait until count >= target; otherwise fall back to APK.isRunning(pkg).
+-- Returns true if detected, false on timeout.
 function Recovery.waitUntilRunning(instance, opts)
     local pkg = instance and instance.package
     if not pkg then return false end
@@ -77,19 +86,36 @@ function Recovery.waitUntilRunning(instance, opts)
     local conf = Config.get() or {}
     opts = opts or {}
     local interval = safeNumber(opts.interval, safeNumber(conf.launchWaitInterval, 3))
-    local timeout = safeNumber(opts.timeout, safeNumber(conf.launchWaitTimeout, 90))
+    local timeout = safeNumber(opts.timeout, safeNumber(conf.launchWaitTimeout, 30))
     local settle = safeNumber(opts.settleDelay, safeNumber(conf.launchSettleDelay, 5))
+    local target = tonumber(opts.target)
+    local checkName = opts.processCheckName or conf.processCheckName or "com.roblox.client"
 
     local name = tostring(instance.name or pkg)
-    Logger.info("Recovery.waitUntilRunning: waiting for " .. name .. " to open (timeout=" .. tostring(timeout) .. "s)")
+    if target then
+        Logger.info(string.format("Recovery.waitUntilRunning: waiting for %s until process count (%s) >= %s (timeout=%ss)", name, checkName, target, timeout))
+    else
+        Logger.info("Recovery.waitUntilRunning: waiting for " .. name .. " to open (timeout=" .. tostring(timeout) .. "s)")
+    end
 
     local started = os.time()
     while true do
-        if APK.isRunning(pkg) then
-            local elapsed = os.time() - started
-            Logger.info(string.format("Recovery.waitUntilRunning: %s opened after %ds; settling %ds", name, elapsed, settle))
-            Timer.sleep(settle)
-            return true
+        if target then
+            local c = APK.countProcess(checkName)
+            Logger.debug(string.format("Recovery.waitUntilRunning: %s count=%s target=%s", checkName, c, target))
+            if c >= target then
+                local elapsed = os.time() - started
+                Logger.info(string.format("Recovery.waitUntilRunning: %s count reached %s after %ds; settling %ds", checkName, c, elapsed, settle))
+                Timer.sleep(settle)
+                return true
+            end
+        else
+            if APK.isRunning(pkg) then
+                local elapsed = os.time() - started
+                Logger.info(string.format("Recovery.waitUntilRunning: %s opened after %ds; settling %ds", name, elapsed, settle))
+                Timer.sleep(settle)
+                return true
+            end
         end
         if (os.time() - started) >= timeout then
             Logger.warn(string.format("Recovery.waitUntilRunning: %s not detected within %ds; continuing", name, timeout))

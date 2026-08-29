@@ -141,4 +141,52 @@ function APKManager.isRunning(packageName)
     return false
 end
 
+-- Count how many processes for `name` are currently running.
+-- Used by "Launch All" to detect how many clones have actually come up: every Roblox
+-- clone runs a process named `com.roblox.client`, so waiting for the count to reach the
+-- number of clones launched gives a reliable per-launch progress signal even when the
+-- per-package process name differs from the package (App Cloner renames packages only).
+-- Returns a number (>= 0). In dry-run returns 1 (as if one process is running).
+function APKManager.countProcess(name)
+    if not name or name == "" then return 0 end
+
+    -- 1) pgrep -f <name>: one PID per line; count non-empty lines (works on busybox).
+    local ok, out = Shell.exec(string.format("pgrep -f %s", name))
+    if ok and out and out ~= "(dry-run)" and out ~= "" then
+        local n = 0
+        for _ in (out.."\n"):gmatch("[^\r\n]+") do
+            n = n + 1
+        end
+        return n
+    end
+    if ok and out and out == "(dry-run)" then
+        return 1
+    end
+
+    -- 2) pidof <name>: a space-separated list of PIDs; count tokens.
+    ok, out = Shell.exec(string.format("pidof %s", name))
+    if ok and out and out ~= "" and out ~= "(dry-run)" then
+        local n = 0
+        for _ in (out.." "):gmatch("%S+") do
+            n = n + 1
+        end
+        return n
+    end
+
+    -- 3) ps -A fallback: count lines whose COMMAND starts with the token.
+    ok, out = Shell.exec("ps -A")
+    if ok and out and out ~= "(dry-run)" then
+        local n = 0
+        for line in (out or ""):gmatch("[^\r\n]+") do
+            local cmd = line:match("(%S+)$")
+            if cmd and (cmd == name or cmd:sub(1, #name + 1) == name .. ":") then
+                n = n + 1
+            end
+        end
+        return n
+    end
+
+    return 0
+end
+
 return APKManager

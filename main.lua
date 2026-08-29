@@ -95,14 +95,19 @@ while true do
             print("No instances configured.")
         else
             print("Launching all instances (one at a time)...")
-            for _, inst in ipairs(list) do
+            local APK = require("managers.apk")
+            local conf = Config.get() or {}
+            local checkName = conf.processCheckName or "com.roblox.client"
+            local baseline = APK.countProcess(checkName)
+            print(string.format("(already running %s processes: %s) ", tostring(baseline), checkName))
+            for i, inst in ipairs(list) do
                 print(string.format("  launching id=%s name=%s package=%s", tostring(inst.id), tostring(inst.name or ""), tostring(inst.package or "")))
                 local ok = Recovery.launchAndJoin(inst)
                 if not ok then
                     print(string.format("  launch failed for id=%s", tostring(inst.id)))
                 else
                     print("  waiting for it to open before the next one...")
-                    Recovery.waitUntilRunning(inst)
+                    Recovery.waitUntilRunning(inst, { target = baseline + i })
                 end
             end
             print("Starting monitor...")

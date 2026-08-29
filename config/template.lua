@@ -26,8 +26,12 @@ return {
     -- launchWaitTimeout:   how long (s) to wait before giving up on one clone and moving on.
     -- launchSettleDelay:   extra pause (s) after a clone is detected, before launching next.
     launchWaitInterval = 3,
-    launchWaitTimeout = 90,
+    -- Shortened so a failed detection never hangs "Launch All" for long.
+    launchWaitTimeout = 30,
     launchSettleDelay = 5,
+    -- Base process name counted to detect how many clones are running during "Launch All".
+    -- App Cloner clones all run as "com.roblox.client"; change if the app differs.
+    processCheckName = "com.roblox.client",
     instances = {
         -- Example instance (AutoExecute is global; per-instance path is optional override)
         -- privateServer accepts either a public game link

@@ -83,6 +83,16 @@ Initial Project
 - `escapeRegex` now emits backslash escapes (`\.`) valid for POSIX ERE (`pgrep -f`).
 - `ps -A` fallback compares the process command start with a plain (non-regex) check (`cmd == pkg or cmd starts with pkg..":"`) instead of feeding an ERE pattern to Lua's `string.match`.
 
+---
+
+## v0.3.6 — Count-based launch wait + public link joins the map
+
+- New `managers/apk.lua APKManager.countProcess(name)`: counts running processes for a base name (e.g. `com.roblox.client`) via pgrep/pidof/ps. App Cloner clones all run as `com.roblox.client`, so the count tracks how many clones are actually up regardless of the renamed package.
+- `Recovery.waitUntilRunning` now accepts a `target` count: it waits until `countProcess(processCheckName) >= target` (then a settle pause) or a (shortened) timeout. Default `launchWaitTimeout` lowered 90→30s so a failed detection never hangs "Launch All".
+- "Launch All" (`main.lua`) records a baseline `countProcess` before the loop, then after launching clone `i` waits for `count >= baseline + i` before starting the next — launching one clone at a time, each confirmed open before the next.
+- New setting `processCheckName` (default `com.roblox.client`) — the base process counted; editable via Settings → `14) Edit launch wait settings`.
+- `utils/roblox_link.lua`: public game links now convert to `roblox://placeId=<placeId>` (deep link that drops straight into the game/map) instead of `roblox://experiences/<placeId>` (which only opened the game's page on mobile).
+
 ## Upcoming
 
 - Shell Wrapper

@@ -46,9 +46,10 @@ end
 --   * /share?code=...&type=Server (private server) is ALWAYS returned unchanged
 --     (there is no placeId, the code determines the server; reshaping would break it).
 --   * Public game links (https://www.roblox.com/games/<placeId> or
---     roblox://experiences/<placeId>) are converted to roblox://experiences/<placeId>,
---     the deep link Roblox uses to join the place directly (an https URL only wakes the
---     app without joining the game).
+--     roblox://experiences/<placeId>) are converted to roblox://placeId=<placeId>, the
+--     deep link that drops straight INTO the running game/map (owing that
+--     roblox://experiences/<placeId> only opens the game's page on mobile). An https URL
+--     only wakes the app without joining).
 --   * Links we cannot identify are returned unchanged.
 --
 -- Returns (ok, normalized_url_or_err).
@@ -64,10 +65,10 @@ function RobloxLink.normalize(url)
         return true, trimmed
     end
 
-    -- Public game link -> always use the roblox:// deep link for a direct join.
+    -- Public game link -> deep link that joins the map directly.
     local placeId = extractPlaceId(trimmed)
     if placeId then
-        return true, string.format("roblox://experiences/%s", placeId)
+        return true, string.format("roblox://placeId=%s", placeId)
     end
 
     -- Default: hand it back unchanged.
