@@ -20,25 +20,25 @@ return {
         id = 3,
         name = "https://www.roblox.com/games/107778070777162",
         package = "com.apengjers.v5",
-        privateServer = "https://www.roblox.com/games/107778070777162",
+        privateServer = "https://www.roblox.com/games/107778070777162/Steal-An-Egg",
         },
         [2] = {
         id = 4,
         name = "https://www.roblox.com/games/107778070777162",
         package = "com.apengjers.v6",
-        privateServer = "https://www.roblox.com/games/107778070777162",
+        privateServer = "https://www.roblox.com/games/107778070777162/Steal-An-Egg",
         },
         [3] = {
         id = 1,
         name = "https://www.roblox.com/games/107778070777162",
         package = "com.apengjers.v3",
-        privateServer = "www.roblox.com/games/107778070777162/Steal-An-Egg",
+        privateServer = "https://www.roblox.com/games/107778070777162/Steal-An-Egg",
         },
         [4] = {
         id = 2,
         name = "https://www.roblox.com/games/107778070777162",
         package = "com.apengjers.v4",
-        privateServer = "https://www.roblox.com/games/107778070777162",
+        privateServer = "https://www.roblox.com/games/107778070777162/Steal-An-Egg",
         },
     }
 }
