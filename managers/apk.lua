@@ -93,9 +93,10 @@ function APKManager.forceStop(packageName)
     return ok, out
 end
 
--- Escape regex metacharacters so a package name is matched literally.
+-- Escape regex metacharacters so a package name is matched literally in a POSIX ERE
+-- (as consumed by `pgrep -f`). Produces `\.` etc. (backslash-dot), NOT `%.` (percent-dot).
 local function escapeRegex(s)
-    return s:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%1")
+    return s:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "\\%1")
 end
 
 -- Check whether a package has a running process. Tries pidof, then pgrep, then ps.
@@ -123,13 +124,16 @@ function APKManager.isRunning(packageName)
         return true
     end
 
-    -- 3) ps -A fallback (compare the process COMMAND, not the whole line substring)
+    -- 3) ps -A fallback (compare the process COMMAND start without regex, since ps lines
+    --    are columnar and the ERE pattern would not match Lua's pattern syntax)
     ok, out = Shell.exec("ps -A")
     if ok and out and out ~= "(dry-run)" then
         for line in (out or ""):gmatch("[^\r\n]+") do
             local cmd = line:match("(%S+)$")
-            if cmd and cmd:match(pattern) then
-                return true
+            if cmd then
+                if cmd == pkg or cmd:sub(1, #pkg + 1) == pkg .. ":" then
+                    return true
+                end
             end
         end
     end

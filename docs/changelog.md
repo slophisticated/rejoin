@@ -75,6 +75,14 @@ Initial Project
 - "Launch All" (menu 1) now launches clones ONE AT A TIME — it waits for each clone to reopen before starting the next, so multiple floating-window clones each get a chance to appear instead of one being crowded out (previously a fixed 3s pause / then a monitor that still reported "starting").
 - New settings (Settings menu → `14) Edit launch wait settings`): `launchWaitInterval` (3s), `launchWaitTimeout` (90s), `launchSettleDelay` (5s).
 
+---
+
+## v0.3.5 — Fix launch hang (isRunning never matched)
+
+- Fixed `managers/apk.lua escapeRegex`: the replacement was producing `%.` (percent-dot) instead of `\.` (backslash-dot), so the `pgrep -f '^com\.apengjers\.v6($|:)'` pattern never matched and `isRunning` always returned false. `waitUntilRunning` then waited a full timeout per clone, making "Launch All" appear stuck (repeating `pidof`/`pgrep`/`ps`).
+- `escapeRegex` now emits backslash escapes (`\.`) valid for POSIX ERE (`pgrep -f`).
+- `ps -A` fallback compares the process command start with a plain (non-regex) check (`cmd == pkg or cmd starts with pkg..":"`) instead of feeding an ERE pattern to Lua's `string.match`.
+
 ## Upcoming
 
 - Shell Wrapper
