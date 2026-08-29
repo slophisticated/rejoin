@@ -29,9 +29,10 @@ return {
     -- Shortened so a failed detection never hangs "Launch All" for long.
     launchWaitTimeout = 30,
     launchSettleDelay = 5,
-    -- Base process name counted to detect how many clones are running during "Launch All".
-    -- App Cloner clones all run as "com.roblox.client"; change if the app differs.
-    processCheckName = "com.roblox.client",
+    -- Run shell commands as root (su -c). Required on a rooted device Android 11+ so that
+    -- ps/pidof/pgrep can actually see the app processes the Monitor depends on; Termux run
+    -- as a normal user cannot see other apps' processes. Set false on a non-root device.
+    useRoot = true,
     instances = {
         -- Example instance (AutoExecute is global; per-instance path is optional override)
         -- privateServer accepts either a public game link

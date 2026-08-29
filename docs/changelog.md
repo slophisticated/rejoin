@@ -93,6 +93,17 @@ Initial Project
 - New setting `processCheckName` (default `com.roblox.client`) — the base process counted; editable via Settings → `14) Edit launch wait settings`.
 - `utils/roblox_link.lua`: public game links now convert to `roblox://placeId=<placeId>` (deep link that drops straight into the game/map) instead of `roblox://experiences/<placeId>` (which only opened the game's page on mobile).
 
+---
+
+## v0.3.7 — Root (su) process detection + direct-join deep link
+
+- **Root required** (`utils/shell.lua`): every shell command now runs through `su -c '...'` when `useRoot` is enabled (default `true`). This is the real fix for "detection looks broken": on a rooted device Android 11+, Termux running as a NORMAL user cannot see other apps' processes, so every `pidof`/`pgrep`/`ps` probe returned empty and every instance looked offline. Running as root (Magisk) makes the Monitor see the real per-clone processes again. Set `useRoot = false` on a non-root device.
+- **Correct process model**: App Cloner clones keep their OWN package process name (`com.apengjers.v3`, etc. — verified from the clone APK manifest and on-device `su -c "pidof com.apengjers.v3"`), NOT `com.roblox.client` as v0.3.6 assumed. `com.roblox.client` is only the class/activity base, not the process name.
+- `managers/apk.lua`: new `APK.countRunning(packages)` counts how many of the given configured packages report `isRunning` — accurate per-clone count without needing a shared base name.
+- `Recovery.waitUntilRunning` + "Launch All": replaced the `countProcess(processCheckName)` target with `targetCount` of running instances (`countRunning >= baseline + i`). Drops the now-unneeded `processCheckName` setting.
+- `utils/roblox_link.lua`: public game links now convert to **`robloxmobile://placeID=<placeId>`** (capital `ID`) — the scheme the clones register and that `ActivityProtocolLaunch` handles by joining the map directly — instead of `roblox://placeId=<placeId>` which only opened the game's page. `robloxmobile://` added to the accepted-scheme whitelist.
+- New setting `useRoot` (default `true`), editable via Settings → `14) Edit launch wait settings`.
+
 ## Upcoming
 
 - Shell Wrapper

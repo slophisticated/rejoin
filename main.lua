@@ -96,10 +96,12 @@ while true do
         else
             print("Launching all instances (one at a time)...")
             local APK = require("managers.apk")
-            local conf = Config.get() or {}
-            local checkName = conf.processCheckName or "com.roblox.client"
-            local baseline = APK.countProcess(checkName)
-            print(string.format("(already running %s processes: %s) ", tostring(baseline), checkName))
+            local packages = {}
+            for _, inst in ipairs(list) do
+                if inst.package then table.insert(packages, inst.package) end
+            end
+            local baseline = APK.countRunning(packages)
+            print(string.format("(already running %d instance(s))", baseline))
             for i, inst in ipairs(list) do
                 print(string.format("  launching id=%s name=%s package=%s", tostring(inst.id), tostring(inst.name or ""), tostring(inst.package or "")))
                 local ok = Recovery.launchAndJoin(inst)
@@ -107,7 +109,7 @@ while true do
                     print(string.format("  launch failed for id=%s", tostring(inst.id)))
                 else
                     print("  waiting for it to open before the next one...")
-                    Recovery.waitUntilRunning(inst, { target = baseline + i })
+                    Recovery.waitUntilRunning(inst, { targetCount = baseline + i, instances = list })
                 end
             end
             print("Starting monitor...")

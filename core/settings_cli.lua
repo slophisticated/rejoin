@@ -26,7 +26,7 @@ local function printSettings(conf)
     print("  launchWaitInterval = " .. tostring(conf.launchWaitInterval))
     print("  launchWaitTimeout = " .. tostring(conf.launchWaitTimeout))
     print("  launchSettleDelay = " .. tostring(conf.launchSettleDelay))
-    print("  processCheckName = " .. tostring(conf.processCheckName))
+    print("  useRoot = " .. tostring(conf.useRoot == nil and true or conf.useRoot))
 end
 
 function CLI.run()
@@ -46,7 +46,7 @@ function CLI.run()
     conf.launchWaitInterval = conf.launchWaitInterval or 3
     conf.launchWaitTimeout = conf.launchWaitTimeout or 30
     conf.launchSettleDelay = conf.launchSettleDelay or 5
-    conf.processCheckName = conf.processCheckName or "com.roblox.client"
+    if conf.useRoot == nil then conf.useRoot = true end
 
     while true do
         print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit autoExecute global path\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Edit clonePackagePrefix\n 11) Edit freezeTimeout\n 12) Edit gracePeriod\n 13) Toggle anrCheckEnabled\n 14) Edit launch wait settings\n 15) Save and Exit\n 16) Exit without saving\n')
@@ -106,8 +106,16 @@ function CLI.run()
             v = prompt("launchSettleDelay (pause after open, seconds): [" .. tostring(conf.launchSettleDelay) .. "] ")
             n = tonumber(v)
             if n and n >= 0 then conf.launchSettleDelay = n else print("Invalid number") end
-            v = prompt("processCheckName (base process to count): [" .. tostring(conf.processCheckName) .. "] ")
-            if v and v ~= "" then conf.processCheckName = v end
+            v = prompt("useRoot (run commands as root / su -c, true/false): [" .. tostring(conf.useRoot == nil and true or conf.useRoot) .. "] ")
+            if v and v ~= "" then
+                if v == "true" or v == "1" or v:lower() == "y" or v:lower() == "yes" then
+                    conf.useRoot = true
+                elseif v == "false" or v == "0" or v:lower() == "n" or v:lower() == "no" then
+                    conf.useRoot = false
+                else
+                    print("Invalid value (use true/false)")
+                end
+            end
         elseif choice == "15" then
             local ok, err = Config.save(conf)
             if ok then

@@ -189,4 +189,20 @@ function APKManager.countProcess(name)
     return 0
 end
 
+-- Count how many of the given packages currently have a running process.
+-- Used by "Launch All" to decide when each launched clone is actually up, so it can
+-- move on to the next one. Unlike countProcess (which matches a single base name),
+-- this matches each clone's own package name, which is more accurate because every
+-- App Cloner clone keeps its own process name (e.g. com.apengjers.v3).
+function APKManager.countRunning(packages)
+    if not packages then return 0 end
+    local n = 0
+    for _, pkg in ipairs(packages) do
+        if APKManager.isRunning(pkg) then
+            n = n + 1
+        end
+    end
+    return n
+end
+
 return APKManager

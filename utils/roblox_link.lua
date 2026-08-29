@@ -5,8 +5,8 @@ local function looksLikeUrl(url)
     if not url or type(url) ~= "string" then return false end
     url = url:match("^%s*(.-)%s*$")
     if url == "" then return false end
-    -- Accept http(s) links and roblox:// deep links. Reject obviously malformed strings.
-    if not (url:lower():find("^https?://") or url:lower():find("^roblox://")) then
+    -- Accept http(s) links and roblox:// / robloxmobile:// deep links. Reject obviously malformed strings.
+    if not (url:lower():find("^https?://") or url:lower():find("^roblox://") or url:lower():find("^robloxmobile://")) then
         return false
     end
     -- The URL is embedded inside single quotes when passed to `am start`, so a single
@@ -46,10 +46,10 @@ end
 --   * /share?code=...&type=Server (private server) is ALWAYS returned unchanged
 --     (there is no placeId, the code determines the server; reshaping would break it).
 --   * Public game links (https://www.roblox.com/games/<placeId> or
---     roblox://experiences/<placeId>) are converted to roblox://placeId=<placeId>, the
---     deep link that drops straight INTO the running game/map (owing that
---     roblox://experiences/<placeId> only opens the game's page on mobile). An https URL
---     only wakes the app without joining).
+--     roblox://experiences/<placeId>) are converted to robloxmobile://placeID=<placeId>,
+--     the deep link that drops straight INTO the running game/map on Android.
+--     (roblox://placeId=... only opened the game's PAGE; robloxmobile://placeID=... is
+--     handled by ActivityProtocolLaunch on the App Cloner clones and joins the map.)
 --   * Links we cannot identify are returned unchanged.
 --
 -- Returns (ok, normalized_url_or_err).
@@ -68,7 +68,7 @@ function RobloxLink.normalize(url)
     -- Public game link -> deep link that joins the map directly.
     local placeId = extractPlaceId(trimmed)
     if placeId then
-        return true, string.format("roblox://placeId=%s", placeId)
+        return true, string.format("robloxmobile://placeID=%s", placeId)
     end
 
     -- Default: hand it back unchanged.

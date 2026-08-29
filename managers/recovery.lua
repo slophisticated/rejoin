@@ -69,16 +69,18 @@ end
 -- after it is detected. Used by "Launch All" to launch clones one at a time so each
 -- floating-window clone has a chance to come up before the next is started.
 --
--- For App Cloner clones the underlying process is `com.roblox.client` (not the package),
--- so a per-package `isRunning` check can never match. `opts.target` lets the caller pass
--- the number of shared processes that must be up (e.g. count >= baseline + cloneIndex),
--- detected via APK.countProcess(processCheckName).
+-- Each App Cloner clone runs under its OWN package process name (e.g. com.apengjers.v3),
+-- so `opts.targetCount` lets the caller wait until a given number of the configured
+-- instances report running (via APK.countRunning) — e.g. count >= baseline + cloneIndex
+-- — which is the reliable signal that the launched clone actually came up.
 --
--- Options (all optional): interval, timeout, settleDelay, target.
---   * target:  number of processes of `processCheckName` that must be running.
---   * processCheckName: base process to count (default conf.processCheckName or com.roblox.client).
--- If target is given, wait until count >= target; otherwise fall back to APK.isRunning(pkg).
--- Returns true if detected, false on timeout.
+-- Options (all optional): interval, timeout, settleDelay, targetCount, instances.
+--   * targetCount:  number of configured instances (packages in `instances`) that must
+--     report running before we settle and move on.
+--   * instances:    list of instance tables used (together with targetCount) to compute
+--     how many are running. Falls back to `{ instance }` when not provided.
+-- If targetCount is given, wait until countRunning >= targetCount; otherwise fall back
+-- to APK.isRunning(pkg). Returns true if detected, false on timeout.
 function Recovery.waitUntilRunning(instance, opts)
     local pkg = instance and instance.package
     if not pkg then return false end
@@ -88,12 +90,19 @@ function Recovery.waitUntilRunning(instance, opts)
     local interval = safeNumber(opts.interval, safeNumber(conf.launchWaitInterval, 3))
     local timeout = safeNumber(opts.timeout, safeNumber(conf.launchWaitTimeout, 30))
     local settle = safeNumber(opts.settleDelay, safeNumber(conf.launchSettleDelay, 5))
-    local target = tonumber(opts.target)
-    local checkName = opts.processCheckName or conf.processCheckName or "com.roblox.client"
+    local target = tonumber(opts.targetCount)
+    local instances = opts.instances or { instance }
+
+    local packages = {}
+    for _, inst in ipairs(instances) do
+        if inst and inst.package then
+            table.insert(packages, inst.package)
+        end
+    end
 
     local name = tostring(instance.name or pkg)
     if target then
-        Logger.info(string.format("Recovery.waitUntilRunning: waiting for %s until process count (%s) >= %s (timeout=%ss)", name, checkName, target, timeout))
+        Logger.info(string.format("Recovery.waitUntilRunning: waiting for %d instance(s) to be running (timeout=%ss)", target, timeout))
     else
         Logger.info("Recovery.waitUntilRunning: waiting for " .. name .. " to open (timeout=" .. tostring(timeout) .. "s)")
     end
@@ -101,11 +110,11 @@ function Recovery.waitUntilRunning(instance, opts)
     local started = os.time()
     while true do
         if target then
-            local c = APK.countProcess(checkName)
-            Logger.debug(string.format("Recovery.waitUntilRunning: %s count=%s target=%s", checkName, c, target))
+            local c = APK.countRunning(packages)
+            Logger.debug(string.format("Recovery.waitUntilRunning: running=%s target=%s", c, target))
             if c >= target then
                 local elapsed = os.time() - started
-                Logger.info(string.format("Recovery.waitUntilRunning: %s count reached %s after %ds; settling %ds", checkName, c, elapsed, settle))
+                Logger.info(string.format("Recovery.waitUntilRunning: running=%s reached target %s after %ds; settling %ds", c, target, elapsed, settle))
                 Timer.sleep(settle)
                 return true
             end
