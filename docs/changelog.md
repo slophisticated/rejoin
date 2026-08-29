@@ -135,6 +135,11 @@ Initial Project
 - `managers/recovery.lua launchAndJoin`: instances with a `privateServer` are now joined by sending the deep link **directly** (`openGameLink`), **without** a separate `APK.launch` (MAIN/LAUNCHER) first. On-device proof: firing `roblox://placeId=<id>` + `-p <clone>` at a cold clone auto-joins the map, whereas launching through the launcher activity first left the app on its home screen so the link only showed the game page. `APK.launch` is still used for instances with no link.
 - `main.lua`: Ctrl+C hard stop — `prompt()` now `os.exit(0)` when `io.read()` returns nil (Ctrl+C/EOF in the menu), plus "tekan Ctrl+C untuk berhenti" hints in the menu and before the monitor starts.
 
+## v0.4.3 — cold start (force-stop) before join
+
+- `managers/recovery.lua launchAndJoin`: instances with a `privateServer` are now **force-stopped first** (`APK.forceStop(pkg)`, 1s settle) before the join deep link `roblox://placeId=<id>` + `-p <clone>` is sent. On-device proof: option-A join only auto-enters the map from a *cold* clone; if the clone is still warm the link just shows the game page. This makes the tool mirror the manual procedure that worked (force-stop → join link).
+- Instances without a link still use `APK.launch(pkg)`.
+
 ## Upcoming
 
 - Shell Wrapper

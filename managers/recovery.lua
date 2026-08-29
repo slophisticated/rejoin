@@ -55,11 +55,13 @@ function Recovery.launchAndJoin(instance)
     local hasLink = instance.privateServer ~= nil and instance.privateServer ~= ""
 
     if hasLink then
-        -- On-device testing proved that firing the join deep link (roblox://placeId=<id> + -p)
-        -- directly at a FRESH (cold) clone auto-joins the map. Launching via the launcher
-        -- activity first (APK.launch: MAIN/LAUNCHER) left the app on its home screen so the
-        -- following deep link only showed the game's page. So for instances that have a link
-        -- we skip the separate launcher launch and let the deep link open the app itself.
+        -- On-device testing proved that OPTION-A join (`am start -a VIEW -d 'roblox://placeId=<id>'
+        -- -p <clone>`) only auto-joins from a COLD (fresh) clone: the app must be force-stopped
+        -- first, then the deep link launches it and joins the map. If the clone is still warm
+        -- the deep link just shows the game page. Launching via the launcher activity first
+        -- (APK.launch: MAIN/LAUNCHER) also left the app on its home screen, so we skip that too.
+        APK.forceStop(pkg)
+        Timer.sleep(1)
         openGameLink(instance)
     else
         local ok, err = APK.launch(pkg)
