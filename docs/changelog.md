@@ -113,6 +113,13 @@ Initial Project
 - New setting `logLevel` (default `INFO`), editable via Settings → `15) Edit logLevel`.
 - `utils/roblox_link.lua`: public game links now convert to **`roblox://experiences/start?placeId=<placeId>`** — the deep link form Roblox uses to START/join the game directly. Earlier formats (`roblox://experiences/<id>`, `roblox://placeId=...`, `robloxmobile://placeID=`) only opened the game's page on this client. Example: `https://www.roblox.com/games/110776611234/Steal-An-Egg` → `roblox://experiences/start?placeId=110776611234`.
 
+---
+
+## v0.3.9 — Force ActivityProtocolLaunch for direct join
+
+- `utils/android.lua openURL`: public-game links are now delivered by forcing the clone's **`ActivityProtocolLaunch`** handler via `am start -a VIEW -d '<url>' -n <pkg>/com.roblox.client.ActivityProtocolLaunch`, instead of the old `-p <pkg>` (which lets Android pick an activity that only shows the game's page). Falls back to `-p <pkg>` then an untargeted VIEW, logging which strategy ran.
+- `utils/roblox_link.lua`: public links convert back to **`robloxmobile://placeID=<placeId>`** — the form that `ActivityProtocolLaunch` on the App Cloner clones joins straight into the map (verified on the cloned Roblox activity set and the Android direct-join path).
+
 ## Upcoming
 
 - Shell Wrapper

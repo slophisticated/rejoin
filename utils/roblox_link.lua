@@ -46,9 +46,10 @@ end
 --   * /share?code=...&type=Server (private server) is ALWAYS returned unchanged
 --     (there is no placeId, the code determines the server; reshaping would break it).
 --   * Public game links (https://www.roblox.com/games/<placeId> or
---     roblox://experiences/<placeId>) are converted to roblox://experiences/start?placeId=<placeId>,
---     the deep link Roblox uses to START and join the game directly (experiences/<placeId>
---     or placeId=... only opened the game's page).
+--     roblox://experiences/<placeId>) are converted to robloxmobile://placeID=<placeId>,
+--     the deep link that the clone's ActivityProtocolLaunch joins straight into the map
+--     (earlier roblox://experiences/start?placeId=... etc. only opened the game's page
+--     because they were delivered via -p, which let Android pick the web-page activity).
 --   * Links we cannot identify are returned unchanged.
 --
 -- Returns (ok, normalized_url_or_err).
@@ -64,12 +65,12 @@ function RobloxLink.normalize(url)
         return true, trimmed
     end
 
-    -- Public game link -> deep link that launches/joins the game directly.
-    -- roblox://experiences/start?placeId=<id> is the form Roblox uses to START and join
-    -- the place (rather than just showing the game's page like experiences/<id> or placeId=).
+    -- Public game link -> deep link that joins the map directly on Android.
+    -- robloxmobile://placeID=<id> is consumed by the clone's ActivityProtocolLaunch
+    -- (which Android.openURL targets explicitly with -n) to launch/join the place.
     local placeId = extractPlaceId(trimmed)
     if placeId then
-        return true, string.format("roblox://experiences/start?placeId=%s", placeId)
+        return true, string.format("robloxmobile://placeID=%s", placeId)
     end
 
     -- Default: hand it back unchanged.

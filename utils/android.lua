@@ -53,18 +53,46 @@ function Android.launch(packageName)
     return false
 end
 
--- Open a URL. When packageName is provided, the VIEW intent is targeted at that package
--- so a scheme (e.g. roblox://experiences/<placeId>) is delivered to the right clone
--- instead of Android picking a single default handler shared by several clones.
+-- Open a URL. When packageName is provided, the VIEW intent is delivered to that
+-- package so a scheme (e.g. robloxmobile://placeID=<id>) goes to the right clone
+-- instead of Android picking a single shared default handler.
+--
+-- Strategies, tried in order (each logs its result so the active one is visible):
+--   1) am start -a VIEW -d '<url>' -n <pkg>/com.roblox.client.ActivityProtocolLaunch
+--      Forces the clone's ActivityProtocolLaunch (the deep-link->join handler) instead of
+--      letting Android pick another activity (e.g. the web page) which only shows the game
+--      page. This is the form that joins straight into the map on Android.
+--   2) am start -a VIEW -d '<url>' -p <pkg>   (targeted package, legacy)
+--   3) am start -a VIEW -d '<url>'            (untargeted fallback)
 function Android.openURL(url, packageName)
     Logger.info("Android: opening URL " .. tostring(url) .. " (pkg=" .. tostring(packageName) .. ")")
+
+    local function accepted(out)
+        return out ~= nil and out:find("Error", 1, true) == nil
+    end
+
+    -- 1) Force ActivityProtocolLaunch if this is a Roblox clone.
+    if packageName and packageName ~= "" then
+        local proto = packageName .. "/com.roblox.client.ActivityProtocolLaunch"
+        local ok1, out1 = Shell.exec(string.format("am start -a android.intent.action.VIEW -d '%s' -n %s", url, proto))
+        if ok1 and accepted(out1) then
+            Logger.info("Android: openURL via ActivityProtocolLaunch (" .. tostring(proto) .. ")")
+            return true, out1
+        end
+        Logger.warn("Android: ActivityProtocolLaunch openURL failed (" .. tostring(out1) .. "), retrying -p")
+    end
+
+    -- 2) Targeted package.
     if packageName and packageName ~= "" then
         local ok, out = Shell.exec(string.format("am start -a android.intent.action.VIEW -d '%s' -p %s", url, packageName))
-        if ok and out and out:find("Error", 1, true) == nil then
+        if ok and accepted(out) then
+            Logger.info("Android: openURL via targeted package (" .. tostring(packageName) .. ")")
             return true, out
         end
         Logger.warn("Android: targeted openURL failed for " .. tostring(packageName) .. ", retrying without target: " .. tostring(out))
     end
+
+    -- 3) Untargeted.
     return Shell.exec(string.format("am start -a android.intent.action.VIEW -d '%s'", url))
 end
 
