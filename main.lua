@@ -81,11 +81,17 @@ end
 local function prompt(msg)
     io.write(msg)
     io.flush()
-    return io.read()
+    local line = io.read()
+    -- Ctrl+C / EOF while in the menu returns nil; treat it as a clean hard stop.
+    if line == nil then
+        print("\nInterrupted by Ctrl+C; exiting.")
+        os.exit(0)
+    end
+    return line
 end
 
 while true do
-    print('\nMain Menu:\n  1) Launch All + Monitor\n  2) Instances Manager\n  3) Settings\n  4) View Logs\n  5) Start Monitor\n  6) Exit\n')
+    print('\nMain Menu:\n  1) Launch All + Monitor\n  2) Instances Manager\n  3) Settings\n  4) View Logs\n  5) Start Monitor\n  6) Exit\n  (tekan Ctrl+C untuk berhenti)\n')
     local choice = prompt("Choose: ") or ""
     choice = choice:match("^%s*(.-)%s*$")
     if choice == "1" then
@@ -95,6 +101,7 @@ while true do
             print("No instances configured.")
         else
             print("Launching all instances (one at a time)...")
+            print("(tekan Ctrl+C untuk berhenti monitor)")
             local APK = require("managers.apk")
             local packages = {}
             for _, inst in ipairs(list) do
@@ -128,6 +135,7 @@ while true do
         LogsCLI.run()
     elseif choice == "5" then
         local Monitor = require("managers.monitor")
+        print("(tekan Ctrl+C untuk berhenti monitor)")
         Monitor.start(Config.get())
     elseif choice == "6" then
         print("Exiting main")

@@ -130,6 +130,11 @@ Initial Project
 
 - `managers/recovery.lua launchAndJoin`: now polls until the clone's process is running (up to `checkTimeout`, with a short `launchSettleDelay` settle) **before** sending the deep link. Previously the join link was sent immediately after launch, landing while the app was still on the splash screen, so Roblox showed the game's page instead of auto-joining. Mirrors the wait already done by the monitor's `recover` path.
 
+## v0.4.2 — direct deep-link join + Ctrl+C hard stop
+
+- `managers/recovery.lua launchAndJoin`: instances with a `privateServer` are now joined by sending the deep link **directly** (`openGameLink`), **without** a separate `APK.launch` (MAIN/LAUNCHER) first. On-device proof: firing `roblox://placeId=<id>` + `-p <clone>` at a cold clone auto-joins the map, whereas launching through the launcher activity first left the app on its home screen so the link only showed the game page. `APK.launch` is still used for instances with no link.
+- `main.lua`: Ctrl+C hard stop — `prompt()` now `os.exit(0)` when `io.read()` returns nil (Ctrl+C/EOF in the menu), plus "tekan Ctrl+C untuk berhenti" hints in the menu and before the monitor starts.
+
 ## Upcoming
 
 - Shell Wrapper

@@ -52,33 +52,22 @@ function Recovery.launchAndJoin(instance)
     local conf = Config.get() or {}
     Logger.info("Recovery.launchAndJoin: launching " .. tostring(instance.name or pkg))
 
-    local ok, err = APK.launch(pkg)
-    if not ok then
-        Logger.error("Recovery.launchAndJoin: launch failed for " .. tostring(instance.name or pkg) .. ": " .. tostring(err))
-        return false
-    end
+    local hasLink = instance.privateServer ~= nil and instance.privateServer ~= ""
 
-    -- Wait for the clone to actually be running before sending the deep link.
-    -- Sending the join link immediately after launch hit the app while it was still
-    -- on the splash/loading screen, so Roblox just displayed the game's page instead
-    -- of auto-joining (mirrors the wait the monitor's recover path already does).
-    local checkTimeout = safeNumber(conf.checkTimeout, 15)
-    local waited = 0
-    while waited < checkTimeout do
-        if isHealthy(instance) then
-            break
+    if hasLink then
+        -- On-device testing proved that firing the join deep link (roblox://placeId=<id> + -p)
+        -- directly at a FRESH (cold) clone auto-joins the map. Launching via the launcher
+        -- activity first (APK.launch: MAIN/LAUNCHER) left the app on its home screen so the
+        -- following deep link only showed the game's page. So for instances that have a link
+        -- we skip the separate launcher launch and let the deep link open the app itself.
+        openGameLink(instance)
+    else
+        local ok, err = APK.launch(pkg)
+        if not ok then
+            Logger.error("Recovery.launchAndJoin: launch failed for " .. tostring(instance.name or pkg) .. ": " .. tostring(err))
+            return false
         end
-        Timer.sleep(1)
-        waited = waited + 1
     end
-    if waited >= checkTimeout then
-        Logger.warn("Recovery.launchAndJoin: clone not running after " .. tostring(checkTimeout) .. "s for " .. tostring(instance.name or pkg))
-    end
-    -- Small settle so the main UI has a moment to come up before the join link lands.
-    Timer.sleep(safeNumber(conf.launchSettleDelay, 2))
-
-    -- Join game from link (best-effort)
-    openGameLink(instance)
 
     Logger.info("Recovery.launchAndJoin: done for " .. tostring(instance.name or pkg))
     return true
