@@ -27,9 +27,26 @@ local function serializeTable(t, indent)
     indent = indent or ""
     local parts = {"{\n"}
     local nextIndent = indent .. "  "
-    for k, v in pairs(t) do
+
+    -- Traverse keys in a stable order: numeric keys first (ascending), then the rest.
+    local keys = {}
+    for k in pairs(t) do table.insert(keys, k) end
+    table.sort(keys, function(a, b)
+        local ta, tb = type(a), type(b)
+        if ta == "number" and tb == "number" then return a < b end
+        if ta == "number" then return true end
+        if tb == "number" then return false end
+        return tostring(a) < tostring(b)
+    end)
+
+    for _, k in ipairs(keys) do
+        local v = t[k]
+        -- Numbers (including array indices) serialize as plain integer keys so that
+        -- `ipairs`/array reads still work after reload (fixes club-loading instances).
         local key
-        if type(k) == "string" and k:match("^[%a_][%w_]*$") then
+        if type(k) == "number" then
+            key = "[" .. tostring(k) .. "] = "
+        elseif type(k) == "string" and k:match("^[%a_][%w_]*$") then
             key = k .. " = "
         else
             key = "[" .. string.format('%q', tostring(k)) .. "] = "

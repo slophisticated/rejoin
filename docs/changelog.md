@@ -59,6 +59,14 @@ Initial Project
 - "Launch All" (`main.lua` option 1) now pauses ~3s between instances so a floating-window clone appears before the next one is launched.
 - `Android.openURL` now accepts an optional target package and opens the game link with `-p <pkg>` so a `roblox://experiences/<placeId>` deep link is delivered to the correct clone instead of a single shared default handler. Falls back to a non-targeted VIEW if the targeted start fails.
 
+---
+
+## v0.3.3 — Fix disappearing config & stuck "ingame" status
+
+- `core/config.lua serializeTable`: array/numeric keys now serialize as real integer keys (`[1] = ...`) instead of string keys (`["1"] = ...`). Previously a save rewrote `instances` with string keys which `ipairs` could not read, so a later save blanked the config to `instances = {}`.
+- `managers/instance.lua load` + `core/setup_wizard.lua nextId`: read with `pairs()` and normalize mixed string/number keys so configured instances always survive a reload.
+- `managers/apk.lua isRunning`: process matching is now anchored to the START of the process command (`^<pkg>($|:)`) instead of a loose substring. This fixes status getting stuck at "ingame" after an app is closed (a leftover process containing the name as a substring no longer counts), so the monitor now reports `offline` and recovers/relaunches the app.
+
 ## Upcoming
 
 - Shell Wrapper

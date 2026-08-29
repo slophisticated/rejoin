@@ -93,29 +93,42 @@ function APKManager.forceStop(packageName)
     return ok, out
 end
 
+-- Escape regex metacharacters so a package name is matched literally.
+local function escapeRegex(s)
+    return s:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%1")
+end
+
 -- Check whether a package has a running process. Tries pidof, then pgrep, then ps.
+-- Matching is anchored to the START of the process command followed by ':' (a
+-- sub-process) or end-of-line, so a clone like com.apengjers.v3 only counts when ITS
+-- own process is running — not when some OTHER process merely contains the name as a
+-- substring (which previously kept status stuck at "ingame" after the app was closed).
 -- Returns true if any method finds a matching process, false otherwise.
 function APKManager.isRunning(packageName)
     if not packageName or packageName == "" then return false end
     local pkg = packageName:gsub("['\" ]", "")
+    if pkg == "" then return false end
 
-    -- 1) pidof (busybox sometimes missing)
+    local pattern = "^" .. escapeRegex(pkg) .. "($|:)"
+
+    -- 1) pidof (exact process-name match; busybox sometimes missing it)
     local ok, out = Shell.exec(string.format("pidof %s", pkg))
     if ok and out and out ~= "" and out ~= "(dry-run)" then
         return true
     end
 
-    -- 2) pgrep
-    ok, out = Shell.exec(string.format("pgrep -f %s", pkg))
+    -- 2) pgrep -f with an anchored pattern matching this clone's process command start
+    ok, out = Shell.exec(string.format("pgrep -f '%s'", pattern))
     if ok and out and out ~= "" and out ~= "(dry-run)" then
         return true
     end
 
-    -- 3) ps fallback (match process lines that contain the package name)
+    -- 3) ps -A fallback (compare the process COMMAND, not the whole line substring)
     ok, out = Shell.exec("ps -A")
     if ok and out and out ~= "(dry-run)" then
         for line in (out or ""):gmatch("[^\r\n]+") do
-            if line:find(pkg, 1, true) then
+            local cmd = line:match("(%S+)$")
+            if cmd and cmd:match(pattern) then
                 return true
             end
         end

@@ -2,12 +2,19 @@ local InstanceManager = {}
 
 local instances = {}
 
--- Load instances from provided config table
+-- Load instances from provided config table.
+-- Iterates with pairs() (not ipairs) and normalizes both integer and string keys, so
+-- instances survive a reload even if a previous save wrote string keys like "1".
 function InstanceManager.load(config)
     instances = {}
     if config and type(config.instances) == "table" then
-        for _, v in ipairs(config.instances) do
-            table.insert(instances, v)
+        local seen = {}
+        for k, v in pairs(config.instances) do
+            -- key may be an integer (1) or a string ("1"); v is the instance table
+            if type(v) == "table" and not seen[v] then
+                seen[v] = true
+                table.insert(instances, v)
+            end
         end
     end
 end

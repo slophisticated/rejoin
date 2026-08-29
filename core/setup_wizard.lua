@@ -78,11 +78,11 @@ function Wizard.run()
     local conf = Config.get() or {}
     conf.instances = conf.instances or {}
 
-    -- find next available id
+    -- find next available id (pairs + normalization, so string keys don't break it)
     local function nextId()
         local maxid = 0
-        for _,v in ipairs(conf.instances) do
-            if type(v.id) == "number" and v.id > maxid then maxid = v.id end
+        for _,v in pairs(conf.instances) do
+            if type(v) == "table" and type(v.id) == "number" and v.id > maxid then maxid = v.id end
         end
         return maxid + 1
     end
