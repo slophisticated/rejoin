@@ -11,20 +11,12 @@ return {
     -- Optional fast filter for auto-detect clone scan (e.g. "com.apengjers."). Empty = disabled.
     clonePackagePrefix = "",
     normalizeGameLink = false,
+    freezeTimeout = 300,
+    gracePeriod = 30,
+    anrCheckEnabled = true,
     -- Optional: if you want to attempt su-copy into app storage, set appAutoExecutePath to a writable path (requires root)
     -- appAutoExecutePath = "/data/data/<package>/files/autoexecute",
     instances = {
-        {
-            id = 1,
-            name = "Main",
-            package = "com.roblox.client",
-            privateServer = "roblox://example_server_id"
-        },
-        {
-            id = 2,
-            name = "Clone1",
-            package = "com.roblox.clone1",
-            privateServer = nil
-        }
+
     }
 }

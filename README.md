@@ -15,11 +15,13 @@ Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termu
   - `privateServer` (link game / private server)
 - **Auto Detect Clone** — Setup Wizard otomatis mendeteksi app/clone Roblox yang terinstall lewat `cmd package resolve-activity`, jadi clone dengan package name di-rename (mis. `com.apengjers.v3`) tetap ketahuan.
 - **Monitor** — loop tunggal, cek tiap instance bergantian. Jika satu instance mati, hanya instance itu yang di-recovery; instance lain tetap diproses.
+- **Live status per instance** — monitor menampilkan status tiap instance (`offline`, `starting`, `ingame`, `stuck`, `freeze`, `recovery`) setiap siklus.
+- **Auto relaunch freeze** — app yang freeze/stuck lebih dari `freezeTimeout` (default 5 menit) otomatis di-force-stop & di-relaunch.
 - **Recovery** — force-stop → launch → inject AutoExecute → buka game/private server → lanjut monitoring. Dicoba berulang (sesuai `recoveryRetries`).
 - **AutoExecute (global)** — satu script dipakai semua instance.
 - **Auto Join** — buka link game/private server dari tiap instance secara otomatis saat recovery.
-- **Manual Launch + Join** — shortcut di Main Menu untuk membuka app clone tertentu dan langsung join game-nya.
-- **CLI Menu** — Launch+Join, Instances, Settings, Logs, Start Monitor.
+- **Launch All + Monitor** — shortcut di Main Menu meluncurkan semua instance sekaligus lalu langsung masuk monitor.
+- **CLI Menu** — Launch All, Instances, Settings, Logs, Start Monitor.
 
 ---
 
@@ -105,6 +107,11 @@ return {
     -- Link private /share SELALU dibuka apa adanya, apa pun nilai ini.
     normalizeGameLink = false,
 
+    -- Deteksi freeze/stuck.
+    freezeTimeout = 300,        -- detik app boleh freeze sebelum di-relaunch (5 menit)
+    gracePeriod = 30,           -- detik setelah launch sebelum dinilai ingame vs stuck
+    anrCheckEnabled = true,     -- deteksi ANR via logcat (best-effort, lebih andal dgn root)
+
     instances = {
         {
             id = 1,
@@ -181,7 +188,7 @@ rejoin/
 ## Menu
 
 ### Main Menu
-- `1) Launch + Join an instance` (pilih instance → buka app clone + join game dari link)
+- `1) Launch All + Monitor` (launch semua instance + join game, langsung masuk monitor dengan status live)
 - `2) Instances Manager`
 - `3) Settings`
 - `4) View Logs`
@@ -196,6 +203,7 @@ rejoin/
 - `debug` (toggle)
 - `autoExecute` (global), `autoExecuteDeployPath`, `logPath`
 - `clonePackagePrefix`, `normalizeGameLink`
+- `freezeTimeout` (detik sebelum relaunch app freeze), `gracePeriod`, `anrCheckEnabled`
 
 ---
 

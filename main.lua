@@ -94,22 +94,18 @@ while true do
         if #list == 0 then
             print("No instances configured.")
         else
-            print("Instances:")
+            print("Launching all instances...")
             for _, inst in ipairs(list) do
-                print(string.format("  id=%s name=%s package=%s", tostring(inst.id), tostring(inst.name or ""), tostring(inst.package or "")))
-            end
-            local id = prompt("Instance id to launch + join: ") or ""
-            id = tonumber(id)
-            if not id then
-                print("Invalid id")
-            else
-                local inst = InstanceManager.findById(id)
-                if not inst then
-                    print("Instance not found")
-                else
-                    Recovery.launchAndJoin(inst)
+                print(string.format("  launching id=%s name=%s package=%s", tostring(inst.id), tostring(inst.name or ""), tostring(inst.package or "")))
+                local ok = Recovery.launchAndJoin(inst)
+                if not ok then
+                    print(string.format("  launch failed for id=%s", tostring(inst.id)))
                 end
             end
+            print("Starting monitor...")
+            local Monitor = require("managers.monitor")
+            Monitor.start(Config.get())
+            break
         end
     elseif choice == "2" then
         local InstancesCLI = require("core.instances_cli")

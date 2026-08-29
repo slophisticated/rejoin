@@ -14,6 +14,14 @@ return {
     -- Convert public game links to roblox://experiences/<placeId> before opening. Private
     -- /share links are always opened as-is regardless of this setting.
     normalizeGameLink = false,
+    -- Seconds an app may stay frozen/stuck before the monitor force-relaunches it.
+    freezeTimeout = 300,
+    -- Seconds after launch that a running app is still considered "starting" before it
+    -- is judged ingame vs stuck.
+    gracePeriod = 30,
+    -- Enable ANR (Application Not Responding) detection via logcat (best-effort, needs
+    -- readable logcat, more reliable with root).
+    anrCheckEnabled = true,
     instances = {
         -- Example instance (AutoExecute is global; per-instance path is optional override)
         -- privateServer accepts either a public game link

@@ -66,6 +66,34 @@ function Recovery.launchAndJoin(instance)
     return true
 end
 
+-- Force-stop and relaunch an instance's app (used when an app has been frozen/stuck
+-- for too long). Best-effort, no full recovery retry loop.
+function Recovery.relaunch(instance)
+    local pkg = instance and instance.package
+    if not pkg then
+        Logger.error("Recovery.relaunch: instance has no package")
+        return false
+    end
+
+    Logger.info("Recovery.relaunch: force-stopping and relaunching " .. tostring(instance.name or pkg))
+
+    local ok_fs = APK.forceStop(pkg)
+    if not ok_fs then
+        Logger.debug("Recovery.relaunch: forceStop returned false for " .. tostring(pkg))
+    end
+
+    Timer.sleep(1)
+
+    local ok, err = APK.launch(pkg)
+    if not ok then
+        Logger.error("Recovery.relaunch: launch failed for " .. tostring(instance.name or pkg) .. ": " .. tostring(err))
+        return false
+    end
+
+    Logger.info("Recovery.relaunch: relaunched " .. tostring(instance.name or pkg))
+    return true
+end
+
 -- Perform recovery for a single instance table (expects fields: package, privateServer)
 -- Includes retries and simple health checks
 function Recovery.checkAndRecover(instance)

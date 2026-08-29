@@ -31,6 +31,17 @@ Initial Project
 - New settings: `clonePackagePrefix`, `normalizeGameLink`
 - Main Menu: new shortcut `Launch + Join an instance` (choose an instance, launch its app and open its game link manually via `Recovery.launchAndJoin`)
 
+---
+
+## v0.3 — Launch-all + live per-instance status
+
+- Main Menu `1) Launch + Join` now launches ALL configured instances (no manual pick), then immediately starts the monitor.
+- New `managers/status.lua`: tracks per-instance status — `offline`, `starting`, `ingame`, `stuck`, `freeze`, `recovery`.
+- Freeze detection via logcat ANR (`ANR in <package>`) with a grace-period fallback for `stuck`.
+- `Recovery.relaunch()` force-stops and relaunches an app that has stayed frozen for `freezeTimeout` (default 300s, counted from when stuck/freeze was set).
+- Monitor prints a live per-instance status table each cycle.
+- New settings: `freezeTimeout`, `gracePeriod`, `anrCheckEnabled`.
+
 ## Upcoming
 
 - Shell Wrapper
