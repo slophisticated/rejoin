@@ -2,6 +2,7 @@ local Logger = require("core.logger")
 local APK = require("managers.apk")
 local AutoExecute = require("managers.autoexecute")
 local UtilsAndroid = require("utils.android")
+local RobloxLink = require("utils.roblox_link")
 local Timer = require("utils.timer")
 local Config = require("core.config")
 
@@ -84,9 +85,15 @@ function Recovery.checkAndRecover(instance)
                 Logger.warn("Recovery: autoexecute inject failed: " .. tostring(err))
             end
 
-            -- Open private server URL if present
+            -- Open game / private server URL if present (normalize to a safe form first)
             if instance.privateServer then
-                UtilsAndroid.openURL(instance.privateServer)
+                local normalizeGame = conf.normalizeGameLink and true or false
+                local okLink, link = RobloxLink.normalize(instance.privateServer, normalizeGame)
+                if okLink then
+                    UtilsAndroid.openURL(link)
+                else
+                    Logger.warn("Recovery: skipping invalid game link for " .. tostring(instance.name or pkg) .. ": " .. tostring(link))
+                end
             end
 
             Logger.info("Recovery: completed successfully for " .. tostring(instance.name or pkg))

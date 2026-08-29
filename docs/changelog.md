@@ -18,6 +18,18 @@ Initial Project
 - AutoExecute: treat global `config.autoExecute` as the shared script; per-instance path is an optional override
 - Config template/working config: removed per-instance `autoExecutePath` in favour of the global AutoExecute path
 
+---
+
+## v0.2 — Android clone integration
+
+- Auto-detect Roblox apps/clones during Setup Wizard via `cmd package resolve-activity` (works for renamed clones like `com.apengjers.v3`), plus optional `clonePackagePrefix` fast filter. Manual input still available.
+- New `utils/roblox_link.lua`: safe game-link normalization
+  - Public game links (`https://www.roblox.com/games/<placeId>`) optionally converted to `roblox://experiences/<placeId>`
+  - Private server share links (`https://www.roblox.com/share?code=...&type=Server`) always opened as-is
+  - Unknown/invalid links rejected safely
+- Recovery now opens the instance game/private-server link through the normalizer before `am start VIEW`
+- New settings: `clonePackagePrefix`, `normalizeGameLink`
+
 ## Upcoming
 
 - Shell Wrapper

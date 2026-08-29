@@ -5,7 +5,7 @@ local APKManager = {}
 
 -- Resolve the default launchable activity component for a package (best-effort).
 -- Returns the component string like "com.roblox.client/.Activity" or nil on failure.
-local function resolveLaunchComponent(packageName)
+function APKManager.resolveLaunchComponent(packageName)
     -- cmd package resolve-activity --brief returns the package/activity component on the last line
     local cmd = string.format("cmd package resolve-activity --brief %s", packageName)
     local ok, out = Shell.exec(cmd)
@@ -27,7 +27,7 @@ function APKManager.launch(packageName)
     Logger.info("APKManager: launching package: " .. tostring(packageName))
 
     -- 1) Resolve the real launchable activity component (fixes hardcoded .MainActivity)
-    local component = resolveLaunchComponent(packageName)
+    local component = APKManager.resolveLaunchComponent(packageName)
     if component then
         Logger.info("APKManager: resolved launch component: " .. tostring(component))
         local ok, out = Shell.exec(string.format("am start -W -n %s", component))

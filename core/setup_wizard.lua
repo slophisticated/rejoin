@@ -11,8 +11,43 @@ local function prompt(msg)
     return io.read()
 end
 
+-- Decide whether a package looks like a Roblox app / clone.
+-- Priority:
+--   1) resolve-activity: the launchable component point to a Roblox-class app
+--      (component/activity containing "roblox", or a com.roblox.* package).
+--   2) optional fast prefix filter (clonePackagePrefix) from settings.
+local function isRobloxApp(pkg, prefix)
+    local lower = pkg:lower()
+
+    -- Optional prefix filter (fast, exact string at start), e.g. "com.apengjers."
+    if prefix and prefix ~= "" and lower:find(prefix:lower(), 1, true) == 1 then
+        return true
+    end
+
+    -- Package name itself mentions roblox
+    if lower:find("roblox", 1, true) then
+        return true
+    end
+
+    -- Resolve the launchable activity; a Roblox clone usually inherits a Roblox
+    -- component like "com.roblox.client/.Activity" even when the package is renamed.
+    local APK = require("managers.apk")
+    local component = APK.resolveLaunchComponent(pkg)
+    if component then
+        local cl = component:lower()
+        if cl:find("roblox", 1, true) then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function detectRobloxPackages()
     Logger.info("SetupWizard: detecting installed packages (pm list packages)")
+    local conf = Config.get() or {}
+    local prefix = conf.clonePackagePrefix or ""
+
     local ok, out = Shell.exec("pm list packages")
     if not ok or not out then
         return nil, "detection_failed"
@@ -22,7 +57,7 @@ local function detectRobloxPackages()
     for line in out:gmatch("[^\n]+") do
         -- lines usually like: "package:com.roblox.client"
         local pkg = line:match("package:(%S+)")
-        if pkg and pkg:lower():find("roblox") then
+        if pkg and isRobloxApp(pkg, prefix) then
             table.insert(pkgs, pkg)
         end
     end
@@ -34,7 +69,7 @@ function Wizard.run()
     print("\n=== Rejoin Engine Setup Wizard ===\n")
     print("This wizard will help you create instances and initial configuration.")
     print("Choose mode:")
-    print("  1) Auto Detect Roblox packages on device (Termux/Android)")
+    print("  1) Auto Detect Roblox apps/clones on device (Termux/Android)")
     print("  2) Manual input (enter package names by hand)")
 
     local choice = prompt("Select 1 or 2: ") or ""

@@ -1,46 +1,210 @@
-Rejoin Engine
-=============
+# Rejoin Engine
 
-Rejoin Engine is a Lua-based automation tool designed to run on Termux/Android to manage multiple Roblox instances: launching, monitoring, recovery, and auto rejoin.
+Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termux/Android** untuk mengelola banyak instance Roblox sekaligus: launching, monitoring, recovery, dan auto rejoin.
 
-Quickstart (Termux/Android)
---------------------------
+- Target: Android 10+, Termux, Lua 5.3 (atau LuaJIT), wajib **root** untuk beberapa aksi.
+- Data disimpan lokal. Tanpa server, tanpa backend.
 
-1. Ensure Termux has Lua 5.3 and necessary tools installed (am, pm, pidof, cp).
+---
 
-2. Place the project on the device and run:
+## Fitur
 
+- **Multi Instance** — kelola banyak clone Roblox sekaligus, tiap instance punya:
+  - `name` (nama instance)
+  - `package` (package name clone, contoh `com.apengjers.v3`)
+  - `privateServer` (link game / private server)
+- **Auto Detect Clone** — Setup Wizard otomatis mendeteksi app/clone Roblox yang terinstall lewat `cmd package resolve-activity`, jadi clone dengan package name di-rename (mis. `com.apengjers.v3`) tetap ketahuan.
+- **Monitor** — loop tunggal, cek tiap instance bergantian. Jika satu instance mati, hanya instance itu yang di-recovery; instance lain tetap diproses.
+- **Recovery** — force-stop → launch → inject AutoExecute → buka game/private server → lanjut monitoring. Dicoba berulang (sesuai `recoveryRetries`).
+- **AutoExecute (global)** — satu script dipakai semua instance.
+- **Auto Join** — buka link game/private server dari tiap instance secara otomatis saat recovery.
+- **CLI Menu** — Instances, Settings, Logs, Start Monitor.
+
+---
+
+## Persyaratan
+
+- Android 10+
+- Termux + akses root (Magisk/KernelSU) untuk beberapa fitur
+- Lua 5.3 (atau LuaJIT via `setup.sh`)
+- Perintah shell Android: `am`, `pm`, `pidof`/`pgrep`/`ps`, `cp`
+
+---
+
+## Quickstart (Termux/Android)
+
+1. Pastikan Termux punya Lua 5.3 + tools yang dibutuhkan.
+
+2. Letakkan project di device, lalu jalankan setup (sekali):
+   ```sh
+   cd ~/rejoin
+   chmod +x setup.sh && ./setup.sh
+   ```
+
+3. Jalankan tools:
+   ```sh
    lua main.lua
+   ```
+   - Jika `config/config.lua` belum ada, **Setup Wizard** akan berjalan untuk mendeteksi/menambah instance.
 
-   - If config/config.lua does not exist, the Setup Wizard will run to detect or add instances.
+4. Gunakan Main Menu untuk: **Instances**, **Settings**, **View Logs**, **Start Monitor**.
 
-3. Use the Main Menu to configure Instances, Settings, View Logs, and Start the Monitor.
+### Headless / automated run
 
-Headless / automated run
-------------------------
-
-- Start monitor immediately (headless):
-
+- Mulai monitor langsung (tanpa menu):
+  ```sh
   lua main.lua --headless --start-monitor
-
-- Skip wizard when config missing:
-
+  ```
+- Lewati wizard saat config belum ada:
+  ```sh
   lua main.lua --no-wizard
+  ```
+- Simulasi tanpa efek samping shell (dry-run):
+  ```sh
+  lua main.lua --dry-run --headless --start-monitor
+  ```
 
-Files of interest
------------------
+---
 
-- main.lua — entry point and interactive main menu
-- core/ — core modules (config, logger, setup, state, wizard, CLIs)
-- managers/ — managers (instance, apk, monitor, recovery, autoexecute)
-- utils/ — helpers (shell, file, timer, android, json)
-- config/template.lua — config template
-- data/ — runtime data (autoexecute deploys and logs)
+## Konsep: Package Name Clone
 
-Notes
------
-- Many operations use Android shell commands (am, pm, pidof) and may require root for some actions. Run on a Termux environment.
-- AutoExecute deployment copies the script to a deploy folder; in-app injection may still require app-specific steps or root.
-- Logger writes to data/rejoin.log by default; path configurable in settings.
+Tiap instance diidentifikasi lewat **package name**, bukan path folder.
 
-If you want, the assistant can now run a dry-run simulation of monitor+recovery on the host (no shell commands) or prepare a sample config file for your device. Request which next.
+Jika kamu pakai **app cloner** untuk menggandakan Roblox, setiap clone punya package name unik, contoh:
+
+- `com.apengjers.v3`
+- `com.apengjers.v4`
+- `com.apengjers.v5`
+
+Masukkan masing-masing package name ke `package` pada konfigurasi instance. Setup Wizard mode **Auto Detect** bisa menemukannya otomatis; mode **Manual** tersedia untuk instance yang tidak terdeteksi.
+
+---
+
+## Konfigurasi
+
+File: `config/config.lua` (dibuat dari `config/template.lua` saat pertama kali).
+
+Contoh:
+
+```lua
+return {
+    -- AutoExecute bersifat GLOBAL: semua instance pakai script yang sama.
+    autoExecute = "data/autoexecute/sample_AutoExecute.lua",
+    monitorInterval = 5,       -- detik antar siklus monitor
+    recoveryDelay = 3,         -- jeda antar percobaan recovery
+    recoveryRetries = 3,       -- berapa kali recovery dicoba
+    checkTimeout = 15,         -- detik menunggu app jadi sehat
+    debug = true,
+    autoExecuteDeployPath = "data/autoexecute",
+    logPath = "data/rejoin.log",
+
+    -- Filter cepat opsional untuk Auto Detect (mis. "com.apengjers."). Kosong = nonaktif.
+    clonePackagePrefix = "",
+    -- Ubah link game publik ke roblox://experiences/<placeId> sebelum dibuka.
+    -- Link private /share SELALU dibuka apa adanya, apa pun nilai ini.
+    normalizeGameLink = false,
+
+    instances = {
+        {
+            id = 1,
+            name = "Main",
+            package = "com.apengjers.v3",
+            privateServer = "https://www.roblox.com/games/107778070777162/Steal-An-Egg"
+        },
+        {
+            id = 2,
+            name = "Clone1",
+            package = "com.apengjers.v4",
+            privateServer = "https://www.roblox.com/share?code=62e6ddb1dc13094d872ea3f91ec427c8&type=Server"
+        }
+    }
+}
+```
+
+### Format `privateServer`
+
+Field `privateServer` (atau link game) menerima beberapa format:
+
+| Jenis | Contoh |
+| --- | --- |
+| Public game link | `https://www.roblox.com/games/107778070777162/Steal-An-Egg` |
+| Private server share link | `https://www.roblox.com/share?code=62e6ddb1dc13094d872ea3f91ec427c8&type=Server` |
+| Roblox deep link | `roblox://experiences/107778070777162` |
+
+Catatan link:
+- Link dikirim ke `am start VIEW` setelah dinormalisasi dengan aman.
+- Link **private server `/share` selalu dibuka apa adanya** (tidak diubah).
+- Jika `normalizeGameLink = true`, link game publik dikonversi ke `roblox://experiences/<placeId>`.
+- Link yang tidak valid / berisi karakter berbahaya akan ditolak.
+
+---
+
+## Struktur Project
+
+```
+rejoin/
+├── main.lua                    # entry point + main menu
+├── setup.sh                    # setup skrip Termux
+├── config/
+│   ├── config.lua              # konfigurasi aktif (dibuat otomatis dr template)
+│   ├── template.lua            # template konfigurasi
+│   └── sample_AutoExecute.lua  # contoh script AutoExecute
+├── core/
+│   ├── config.lua              # loader & saver config
+│   ├── logger.lua              # logger ke file
+│   ├── state.lua               # state machine sederhana
+│   ├── setup.lua               # pastikan config ada
+│   ├── setup_wizard.lua        # wizard setup (auto-detect + manual)
+│   ├── instances_cli.lua       # menu instances
+│   ├── settings_cli.lua        # menu settings
+│   ├── logs_cli.lua            # viewer log
+│   └── runtime.lua             # flag runtime (dry-run)
+├── managers/
+│   ├── apk.lua                 # launch, force-stop, isRunning, resolve-activity
+│   ├── instance.lua            # manager instance
+│   ├── monitor.lua             # loop monitor
+│   ├── recovery.lua            # engine recovery
+│   └── autoexecute.lua         # deploy/inject AutoExecute
+├── utils/
+│   ├── shell.lua               # eksekusi shell
+│   ├── android.lua             # wrapper am/intent
+│   ├── roblox_link.lua         # normalisasi link game/private server
+│   ├── file.lua, json.lua, timer.lua
+└── data/
+    ├── rejoin.log              # log runtime
+    └── autoexecute/            # folder deploy AutoExecute
+```
+
+---
+
+## Menu
+
+### Main Menu
+- `1) Instances Manager`
+- `2) Settings`
+- `3) View Logs`
+- `4) Start Monitor`
+- `5) Exit`
+
+### Instances Manager
+- List, Add, Edit, Delete instance
+
+### Settings
+- `monitorInterval`, `recoveryDelay`, `recoveryRetries`, `checkTimeout`
+- `debug` (toggle)
+- `autoExecute` (global), `autoExecuteDeployPath`, `logPath`
+- `clonePackagePrefix`, `normalizeGameLink`
+
+---
+
+## Logging
+
+- File log: `data/rejoin.log` (path bisa diubah di Settings → `logPath`).
+- Mencatat aktivitas: launch, recovery, join, error, sukses.
+- Lihat via menu `View Logs`, atau langsung di device.
+
+---
+
+## Lisensi / Kontribusi
+
+Project ini dikembangkan mandiri untuk keperluan otomatisasi. Gunakan dengan bijak sesuai ketentuan platform Roblox dan kebijakan masing-masing perangkat.

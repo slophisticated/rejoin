@@ -8,6 +8,9 @@ return {
     debug = true,
     autoExecuteDeployPath = "data/autoexecute",
     logPath = "data/rejoin.log",
+    -- Optional fast filter for auto-detect clone scan (e.g. "com.apengjers."). Empty = disabled.
+    clonePackagePrefix = "",
+    normalizeGameLink = false,
     -- Optional: if you want to attempt su-copy into app storage, set appAutoExecutePath to a writable path (requires root)
     -- appAutoExecutePath = "/data/data/<package>/files/autoexecute",
     instances = {

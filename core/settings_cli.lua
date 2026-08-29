@@ -19,6 +19,8 @@ local function printSettings(conf)
     print("  autoExecute = " .. tostring(conf.autoExecute))
     print("  autoExecuteDeployPath = " .. tostring(conf.autoExecuteDeployPath))
     print("  logPath = " .. tostring(conf.logPath))
+    print("  clonePackagePrefix = " .. tostring(conf.clonePackagePrefix or ""))
+    print("  normalizeGameLink = " .. tostring(conf.normalizeGameLink and true or false))
 end
 
 function CLI.run()
@@ -31,9 +33,11 @@ function CLI.run()
     conf.autoExecute = conf.autoExecute or ""
     conf.autoExecuteDeployPath = conf.autoExecuteDeployPath or "data/autoexecute"
     conf.logPath = conf.logPath or "data/rejoin.log"
+    conf.clonePackagePrefix = conf.clonePackagePrefix or ""
+    conf.normalizeGameLink = conf.normalizeGameLink == nil and false or conf.normalizeGameLink
 
     while true do
-        print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit autoExecute global path\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Save and Exit\n 11) Exit without saving\n')
+        print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit autoExecute global path\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Edit clonePackagePrefix\n 11) Toggle normalizeGameLink\n 12) Save and Exit\n 13) Exit without saving\n')
         local choice = prompt("Choose: ") or ""
         choice = choice:match("^%s*(.-)%s*$")
         if choice == "1" then
@@ -67,6 +71,12 @@ function CLI.run()
             local v = prompt("logPath: [" .. tostring(conf.logPath) .. "] ")
             if v and v ~= "" then conf.logPath = v end
         elseif choice == "10" then
+            local v = prompt("clonePackagePrefix (empty to disable): [" .. tostring(conf.clonePackagePrefix) .. "] ")
+            if v and v ~= "" then conf.clonePackagePrefix = v end
+        elseif choice == "11" then
+            conf.normalizeGameLink = not (conf.normalizeGameLink and true or false)
+            print("normalizeGameLink = " .. tostring(conf.normalizeGameLink and true or false))
+        elseif choice == "12" then
             local ok, err = Config.save(conf)
             if ok then
                 print("Settings saved")
@@ -77,7 +87,7 @@ function CLI.run()
                 print("Failed to save: " .. tostring(err))
             end
             break
-        elseif choice == "11" then
+        elseif choice == "13" then
             print("Aborting without saving")
             break
         else
