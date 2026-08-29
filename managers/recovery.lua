@@ -65,6 +65,40 @@ function Recovery.launchAndJoin(instance)
     return true
 end
 
+-- Wait until an instance's app process is observed running (isRunning true), with a
+-- short settle delay after it is detected. Used by "Launch All" to launch clones one at
+-- a time so each floating-window clone has a chance to come up before the next is started.
+-- Options (all optional): interval, timeout, settleDelay.
+-- Returns true if the process was detected, false on timeout.
+function Recovery.waitUntilRunning(instance, opts)
+    local pkg = instance and instance.package
+    if not pkg then return false end
+
+    local conf = Config.get() or {}
+    opts = opts or {}
+    local interval = safeNumber(opts.interval, safeNumber(conf.launchWaitInterval, 3))
+    local timeout = safeNumber(opts.timeout, safeNumber(conf.launchWaitTimeout, 90))
+    local settle = safeNumber(opts.settleDelay, safeNumber(conf.launchSettleDelay, 5))
+
+    local name = tostring(instance.name or pkg)
+    Logger.info("Recovery.waitUntilRunning: waiting for " .. name .. " to open (timeout=" .. tostring(timeout) .. "s)")
+
+    local started = os.time()
+    while true do
+        if APK.isRunning(pkg) then
+            local elapsed = os.time() - started
+            Logger.info(string.format("Recovery.waitUntilRunning: %s opened after %ds; settling %ds", name, elapsed, settle))
+            Timer.sleep(settle)
+            return true
+        end
+        if (os.time() - started) >= timeout then
+            Logger.warn(string.format("Recovery.waitUntilRunning: %s not detected within %ds; continuing", name, timeout))
+            return false
+        end
+        Timer.sleep(interval)
+    end
+end
+
 -- Force-stop and relaunch an instance's app (used when an app has been frozen/stuck
 -- for too long). Best-effort, no full recovery retry loop.
 function Recovery.relaunch(instance)

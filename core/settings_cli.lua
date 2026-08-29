@@ -23,6 +23,9 @@ local function printSettings(conf)
     print("  freezeTimeout = " .. tostring(conf.freezeTimeout))
     print("  gracePeriod = " .. tostring(conf.gracePeriod))
     print("  anrCheckEnabled = " .. tostring(conf.anrCheckEnabled and true or false))
+    print("  launchWaitInterval = " .. tostring(conf.launchWaitInterval))
+    print("  launchWaitTimeout = " .. tostring(conf.launchWaitTimeout))
+    print("  launchSettleDelay = " .. tostring(conf.launchSettleDelay))
 end
 
 function CLI.run()
@@ -39,9 +42,12 @@ function CLI.run()
     conf.freezeTimeout = conf.freezeTimeout or 300
     conf.gracePeriod = conf.gracePeriod or 30
     conf.anrCheckEnabled = conf.anrCheckEnabled ~= false
+    conf.launchWaitInterval = conf.launchWaitInterval or 3
+    conf.launchWaitTimeout = conf.launchWaitTimeout or 90
+    conf.launchSettleDelay = conf.launchSettleDelay or 5
 
     while true do
-        print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit autoExecute global path\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Edit clonePackagePrefix\n 11) Edit freezeTimeout\n 12) Edit gracePeriod\n 13) Toggle anrCheckEnabled\n 14) Save and Exit\n 15) Exit without saving\n')
+        print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit autoExecute global path\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Edit clonePackagePrefix\n 11) Edit freezeTimeout\n 12) Edit gracePeriod\n 13) Toggle anrCheckEnabled\n 14) Edit launch wait settings\n 15) Save and Exit\n 16) Exit without saving\n')
         local choice = prompt("Choose: ") or ""
         choice = choice:match("^%s*(.-)%s*$")
         if choice == "1" then
@@ -89,6 +95,16 @@ function CLI.run()
             conf.anrCheckEnabled = not (conf.anrCheckEnabled and true or false)
             print("anrCheckEnabled = " .. tostring(conf.anrCheckEnabled and true or false))
         elseif choice == "14" then
+            local v = prompt("launchWaitInterval (poll, seconds): [" .. tostring(conf.launchWaitInterval) .. "] ")
+            local n = tonumber(v)
+            if n and n > 0 then conf.launchWaitInterval = n else print("Invalid number") end
+            v = prompt("launchWaitTimeout (seconds before giving up): [" .. tostring(conf.launchWaitTimeout) .. "] ")
+            n = tonumber(v)
+            if n and n > 0 then conf.launchWaitTimeout = n else print("Invalid number") end
+            v = prompt("launchSettleDelay (pause after open, seconds): [" .. tostring(conf.launchSettleDelay) .. "] ")
+            n = tonumber(v)
+            if n and n >= 0 then conf.launchSettleDelay = n else print("Invalid number") end
+        elseif choice == "15" then
             local ok, err = Config.save(conf)
             if ok then
                 print("Settings saved")
@@ -99,7 +115,7 @@ function CLI.run()
                 print("Failed to save: " .. tostring(err))
             end
             break
-        elseif choice == "15" then
+        elseif choice == "16" then
             print("Aborting without saving")
             break
         else

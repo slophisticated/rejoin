@@ -67,6 +67,14 @@ Initial Project
 - `managers/instance.lua load` + `core/setup_wizard.lua nextId`: read with `pairs()` and normalize mixed string/number keys so configured instances always survive a reload.
 - `managers/apk.lua isRunning`: process matching is now anchored to the START of the process command (`^<pkg>($|:)`) instead of a loose substring. This fixes status getting stuck at "ingame" after an app is closed (a leftover process containing the name as a substring no longer counts), so the monitor now reports `offline` and recovers/relaunches the app.
 
+---
+
+## v0.3.4 — Launch one clone at a time
+
+- `Recovery.waitUntilRunning()` added: after launching a clone, poll `APK.isRunning()` until its process is observed (then a short settle pause) or a timeout elapses.
+- "Launch All" (menu 1) now launches clones ONE AT A TIME — it waits for each clone to reopen before starting the next, so multiple floating-window clones each get a chance to appear instead of one being crowded out (previously a fixed 3s pause / then a monitor that still reported "starting").
+- New settings (Settings menu → `14) Edit launch wait settings`): `launchWaitInterval` (3s), `launchWaitTimeout` (90s), `launchSettleDelay` (5s).
+
 ## Upcoming
 
 - Shell Wrapper

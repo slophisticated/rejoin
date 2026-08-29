@@ -90,21 +90,20 @@ while true do
     choice = choice:match("^%s*(.-)%s*$")
     if choice == "1" then
         local Recovery = require("managers.recovery")
-        local Timer = require("utils.timer")
         local list = InstanceManager.getAll()
         if #list == 0 then
             print("No instances configured.")
         else
-            print("Launching all instances...")
+            print("Launching all instances (one at a time)...")
             for _, inst in ipairs(list) do
                 print(string.format("  launching id=%s name=%s package=%s", tostring(inst.id), tostring(inst.name or ""), tostring(inst.package or "")))
                 local ok = Recovery.launchAndJoin(inst)
                 if not ok then
                     print(string.format("  launch failed for id=%s", tostring(inst.id)))
+                else
+                    print("  waiting for it to open before the next one...")
+                    Recovery.waitUntilRunning(inst)
                 end
-                -- Allow the previously-launched (floating window) clone to appear before
-                -- launching the next one, so each is started as its own window.
-                Timer.sleep(3)
             end
             print("Starting monitor...")
             local Monitor = require("managers.monitor")

@@ -19,6 +19,15 @@ return {
     -- Enable ANR (Application Not Responding) detection via logcat (best-effort, needs
     -- readable logcat, more reliable with root).
     anrCheckEnabled = true,
+
+    -- "Launch All" launches clones ONE AT A TIME, waiting for each to reopen before
+    -- starting the next (so floating-window clones each get a chance to appear).
+    -- launchWaitInterval: how often (s) to poll for the process while waiting.
+    -- launchWaitTimeout:   how long (s) to wait before giving up on one clone and moving on.
+    -- launchSettleDelay:   extra pause (s) after a clone is detected, before launching next.
+    launchWaitInterval = 3,
+    launchWaitTimeout = 90,
+    launchSettleDelay = 5,
     instances = {
         -- Example instance (AutoExecute is global; per-instance path is optional override)
         -- privateServer accepts either a public game link
