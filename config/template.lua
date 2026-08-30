@@ -22,6 +22,13 @@ return {
     -- Enable ANR (Application Not Responding) detection via logcat (best-effort, needs
     -- readable logcat, more reliable with root).
     anrCheckEnabled = true,
+    -- Minimum resident memory (MB) for a clone's process to be considered ACTIVE.
+    -- A running clone uses ~230 MB while a force-close stub is only ~7 MB, so anything
+    -- below this is treated as "not really running" and gets relaunched. Tune if needed.
+    minRss = 50,
+    -- Timeout (seconds) for each shell command (via the `timeout` tool) so a hung
+    -- su/dumpsys call can't freeze the whole tool / stop the terminal accepting input.
+    shellTimeout = 10,
 
     -- "Launch All" launches clones ONE AT A TIME, waiting for each to reopen before
     -- starting the next (so floating-window clones each get a chance to appear).

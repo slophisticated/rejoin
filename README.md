@@ -151,6 +151,7 @@ Catatan link:
 rejoin/
 ├── main.lua                    # entry point + main menu
 ├── setup.sh                    # setup skrip Termux
+├── debug_probe.lua             # alat diagnostik: cek isRunning/isActive per clone
 ├── config/
 │   ├── config.lua              # konfigurasi aktif (dibuat otomatis dr template)
 │   ├── template.lua            # template konfigurasi

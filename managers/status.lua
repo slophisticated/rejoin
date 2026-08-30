@@ -99,16 +99,11 @@ function Status.check(instance)
 
     local running = false
     if pkg then
-        -- Health is decided from window visibility (a force-close leaves a stub process
-        -- alive, so isRunning alone would keep this "ingame" forever). Fall back to the
-        -- process state only when dumpsys is unavailable.
-        local ok, vis = pcall(function() return APK.hasVisibleWindow(pkg) end)
-        if ok and vis ~= nil then
-            running = vis
-        else
-            local ok2, run = pcall(function() return APK.isRunning(pkg) end)
-            running = ok2 and run
-        end
+        -- Health is decided from the RSS threshold (isActive): a force-close leaves a
+        -- low-RSS stub alive, so isRunning alone would keep this "ingame" forever. A
+        -- real running clone has ~235 MB while a force-close stub is only ~7 MB.
+        local ok, res = pcall(function() return APK.isActive(pkg) end)
+        running = ok and res
     end
 
     -- Freeze detection: ANR present for this package in recent logcat.

@@ -3,6 +3,44 @@ local Runtime = require("core.runtime")
 
 local Shell = {}
 
+-- Per-command timeout (seconds). `io.popen` blocks forever with no timeout, so a hung
+-- su/dumpsys call would freeze the whole tool (Termux would stop accepting input).
+-- The timeout is applied with toybox/coreutils `timeout`, falling back to no-wait if
+-- it's unavailable. Overridable via config.shellTimeout.
+local function cmdTimeout()
+    local conf = nil
+    local ok = pcall(function() conf = require("core.config").get() end)
+    if ok and conf and tonumber(conf.shellTimeout) and tonumber(conf.shellTimeout) > 0 then
+        return tonumber(conf.shellTimeout)
+    end
+    return 10
+end
+
+-- Whether a `timeout` tool is available (cached). If missing we run without one so a
+-- command still executes on restricted shells where `timeout` isn't installed.
+local timeoutCheckDone = false
+local timeoutAvailable = false
+local function hasTimeoutTool()
+    if not timeoutCheckDone then
+        timeoutCheckDone = true
+        local f = io.popen("command -v timeout 2>/dev/null")
+        if f then
+            local out = f:read("*l") or ""
+            f:close()
+            timeoutAvailable = (out ~= "")
+        end
+    end
+    return timeoutAvailable
+end
+
+-- Apply a timeout to a command. Runs `timeout <secs> <cmd>` when the tool exists.
+local function applyTimeout(cmd)
+    if hasTimeoutTool() then
+        return "timeout " .. cmdTimeout() .. " " .. cmd
+    end
+    return cmd
+end
+
 -- Whether commands should run with root (`su -c '...'`). Reads `useRoot` from the
 -- project config; defaults to true because the supported setup is a rooted device
 -- (Magisk). On a non-root device set `useRoot = false` in config/config.lua.
@@ -40,7 +78,7 @@ function Shell.exec(cmd)
         return true, "(dry-run)"
     end
 
-    local full = runWithRoot(cmd)
+    local full = runWithRoot(applyTimeout(cmd))
     Logger.debug("Shell.exec: " .. full)
     local f = io.popen(full .. " 2>&1")
     if not f then return false, "popen_failed" end

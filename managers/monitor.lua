@@ -106,17 +106,12 @@ function Monitor.start(conf)
             -- recovery was never triggered (the app stayed closed).
             local healthy = false
             if pkg then
-                -- For floating-window clones a force-close leaves a stub process alive, so
-                -- process existence can never signal "UI closed". Decide health from window
-                -- visibility first (hasVisibleWindow), falling back to the process state only
-                -- when dumpsys is unavailable.
-                local ok, vis = pcall(function() return apkManager.hasVisibleWindow(pkg) end)
-                if ok and vis ~= nil then
-                    healthy = vis
-                else
-                    local ok2, run = pcall(function() return apkManager.isRunning(pkg) end)
-                    healthy = ok2 and run
-                end
+                -- A force-close leaves a low-RSS stub process alive, so process existence
+                -- (isRunning) alone reports it as healthy forever and it's never reopened.
+                -- Decide health from the RSS threshold (isActive): a running clone has
+                -- ~235 MB while a force-close stub is only ~7 MB.
+                local ok, res = pcall(function() return apkManager.isActive(pkg) end)
+                healthy = ok and res
             end
 
             if healthy then

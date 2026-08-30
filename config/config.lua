@@ -13,6 +13,13 @@ return {
     freezeTimeout = 300,
     gracePeriod = 30,
     anrCheckEnabled = true,
+    -- Minimum resident memory (MB) for a clone's process to be considered ACTIVE.
+    -- A running clone uses ~230 MB while a force-close stub is only ~7 MB, so anything
+    -- below this is treated as "not really running" and gets relaunched. Tune if needed.
+    minRss = 50,
+    -- Timeout (seconds) for each shell command (via the `timeout` tool) so a hung
+    -- su/dumpsys call can't freeze the whole tool / stop the terminal accepting input.
+    shellTimeout = 10,
     -- Optional: if you want to attempt su-copy into app storage, set appAutoExecutePath to a writable path (requires root)
     -- appAutoExecutePath = "/data/data/<package>/files/autoexecute",
     instances = {

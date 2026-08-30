@@ -144,63 +144,57 @@ function APKManager.isRunning(packageName)
 end
 
 -- ---------------------------------------------------------------------------
--- Window-visibility detection.
+-- RSS/memory-based "active" detection.
 --
--- For floating-window clones, "closing" the floating window does NOT kill the
--- underlying process — a small stub process (and often the main process) can stay
--- alive, so `isRunning` returns true forever and the closed app is never recovered.
--- The reliable signal for "this clone's UI is actually on screen" is whether the
--- package still owns a visible window in `dumpsys window windows`.
+-- On this device `dumpsys activity`/`dumpsys window` does NOT list the floating-window
+-- clones at all (even when fully running), so UI visibility can't be used. The signal
+-- that actually separates a running clone from a force-close stub is resident memory:
+--    * running clone     ~235 MB  (RSS from `ps -A`, kB)
+--    * force-close stub   ~7 MB
+-- So we treat a clone as ACTIVE only when its process exists AND its RSS is at or above
+-- a threshold (config.minRss, default 50 MB). A low-RSS stub therefore reads as
+-- "not active" -> recovery relaunches it.
 --
--- We scrape `dumpsys window windows` once per TTL and remember which packages own a
--- visible window. hasVisibleWindow(pkg) returns:
---   * true   when the package owns a visible window
---   * false  when dumpsys ran successfully but the package has NO visible window
---   * nil    when dumpsys was unavailable/empty (so callers can fall back)
+-- getRSSinKB(pkg): RSS in kilobytes from `ps -A`, or -1 if no process / not parseable.
+-- isActive(pkg):  process exists AND RSS >= threshold. Returns boolean.
 -- ---------------------------------------------------------------------------
 
-local windowCacheAt = 0
-local windowVisiblePkgs = nil
-local WIN_TTL = 3
+local function rssThreshold()
+    local ok, cfg = pcall(require, "core.config")
+    if ok and cfg then
+        local g = cfg.get and cfg.get() or {}
+        local v = tonumber(g and g.minRss)
+        if v and v > 0 then return v * 1024 end -- config stored in MB -> kB
+    end
+    return 50 * 1024 -- default 50 MB (in kB)
+end
 
-local function refreshWindowCache()
-    local ok, out = Shell.exec("dumpsys window windows")
-    local pkgs = {}
-    local parsed = false
-    if ok and out and out ~= "(dry-run)" then
-        parsed = true
-        for line in out:gmatch("[^\r\n]+") do
-            local w = line:match("Window%{%s*[%w%x]+ u0 ([%w%.]+)")
-            if not w then
-                w = line:match("Window%{%s*[%w%x]+ (%S+)/")
-            end
-            if w then
-                local p = w:match("^([%w%.]+)")
-                if p and p ~= "" then pkgs[p] = true end
-            end
+function APKManager.getRSSinKB(packageName)
+    if not packageName or packageName == "" then return -1 end
+    local pkg = packageName:gsub("['\" ]", "")
+    if pkg == "" then return -1 end
+    local ok, out = Shell.exec("ps -A")
+    if not ok or not out or out == "(dry-run)" then return -1 end
+    for line in out:gmatch("[^\r\n]+") do
+        local fields = {}
+        for f in line:gmatch("%S+") do fields[#fields + 1] = f end
+        if #fields >= 9 and fields[#fields] == pkg then
+            local rss = tonumber(fields[5])
+            if rss then return rss end
+            return -1
         end
     end
-    windowVisiblePkgs = pkgs
-    if not parsed then
-        -- if dumpsys didn't give us anything, report "unavailable" next call
-        windowVisiblePkgs = nil
-    end
+    return -1
 end
 
-function APKManager.hasVisibleWindow(packageName)
-    if not packageName or packageName == "" then return nil end
-    local pkg = packageName:gsub("['\" ]", "")
-    if pkg == "" then return nil end
-    local now = os.time()
-    if windowCacheAt == 0 or (now - windowCacheAt) >= WIN_TTL then
-        windowCacheAt = now
-        refreshWindowCache()
-    end
-    if windowVisiblePkgs == nil then
-        return nil -- unavailable -> caller should fall back
-    end
-    return windowVisiblePkgs[pkg] == true
+function APKManager.isActive(packageName)
+    if not packageName or packageName == "" then return false end
+    if not APKManager.isRunning(packageName) then return false end
+    local rss = APKManager.getRSSinKB(packageName)
+    if rss < 0 then return false end
+    return rss >= rssThreshold()
 end
+
 
 -- Used by "Launch All" to detect how many clones have actually come up: every Roblox
 -- clone runs a process named `com.roblox.client`, so waiting for the count to reach the

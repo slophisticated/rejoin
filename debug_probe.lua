@@ -7,11 +7,13 @@
 --   * APK.isRunning(pkg) result
 --   * pidof / pgrep -f / ps -A evidence (each runs as root via Shell.exec)
 --   * the clone's RSS + process state from `ps`
---   * dumpsys signals: focused/resumed/top activity + any window line for the pkg
+--   * APK.isActive(pkg) decision vs the configured RSS threshold
 --
--- This tells us whether a "closed" clone still shows a process (so we need a
--- UI/activity-based signal) and which dumpsys field actually separates active from
--- dormant clones when monitoring from Termux.
+-- This tells us whether a "closed" clone still shows a process and whether it is
+-- classified as ACTIVE (real memory) or as a force-close stub.
+--
+-- NOTE: dumpsys activity/window calls were removed — on this device they never list the
+-- App Cloner floating-window clones and the heavy `dumpsys` calls hung the terminal.
 
 pcall(require, "core.logger")
 
@@ -20,6 +22,10 @@ local APK = require("managers.apk")
 local InstanceManager = require("managers.instance")
 
 InstanceManager.load(Config.get())
+
+local _cfg = Config.get() or {}
+local minRssMb = tonumber(_cfg.minRss) or 50
+local rssThreshKb = minRssMb * 1024
 
 local instances = InstanceManager.getAll()
 if not instances or #instances == 0 then
@@ -52,30 +58,6 @@ local function psInfo(pkg)
     return nil, nil
 end
 
-local function dumpsysActivityHits(pkg)
-    local ok, out = run("dumpsys activity activities")
-    if not ok or not out then return "" end
-    local hits = {}
-    for line in out:gmatch("[^\r\n]+") do
-        if line:find(pkg, 1, true) then
-            hits[#hits + 1] = line:gsub("^%s+", "")
-        end
-    end
-    return table.concat(hits, "\n")
-end
-
-local function dumpsysWindowHits(pkg)
-    local ok, out = run("dumpsys window windows")
-    if not ok or not out then return "" end
-    local hits = {}
-    for line in out:gmatch("[^\r\n]+") do
-        if line:find(pkg, 1, true) then
-            hits[#hits + 1] = line:gsub("^%s+", "")
-        end
-    end
-    return table.concat(hits, "\n")
-end
-
 print("==================================================================")
 print("launch.md-style probe (all commands run as root)")
 print("==================================================================")
@@ -101,29 +83,6 @@ for i, inst in ipairs(instances) do
     local rss, st = psInfo(pkg)
     print(string.format("ps state=%s rss=%s", tostring(st), tostring(rss and (rss .. " KB") or "?")))
 
-    local wAct = dumpsysActivityHits(pkg)
-    if wAct ~= "" then
-        print("dumpsys activity activities hits for " .. pkg .. ":")
-        print(wAct)
-    else
-        print("dumpsys activity activities:  (no line contains " .. pkg .. ")")
-    end
-
-    local wWin = dumpsysWindowHits(pkg)
-    if wWin ~= "" then
-        print("dumpsys window windows hits for " .. pkg .. ":")
-        print(wWin)
-    else
-        print("dumpsys window windows:  (no line contains " .. pkg .. ")")
-    end
+    local okA, resA = pcall(function() return APK.isActive(pkg) end)
+    print(string.format("isActive=%s (RSS threshold %d MB)", tostring(okA and resA), minRssMb))
 end
-
--- Also dump the global focus/foreground lines once (helps decide the right signal).
-print("")
-print("----- Global focus / foreground (dumpsys activity activities) -----")
-local okF, outF = run("dumpsys activity activities | grep -iE 'topResumedActivity|ResumedActivity|VisibleActivity|mFocusedApp|mCurrentFocus'")
-print(okF and outF or "(none)")
-print("")
-print("----- Global focus (dumpsys window) -----")
-local okW, outW = run("dumpsys window | grep -iE 'mCurrentFocus|mFocusedApp'")
-print(okW and outW or "(none)")
