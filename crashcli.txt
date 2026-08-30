@@ -1,8 +1,29 @@
 ~/rejoin $ lua debug_resize.lua
-/data/data/com.termux/files/usr/bin/lua: ./managers/resize.lua:29: attempt to index a boolean value (local 's')
-                                                                                                               stack traceback:
-                                                                                                                                ./managers/resize.lua:29: in function <./managers/resize.lua:26>
-                                        (...tail calls...)
-                                                                debug_resize.lua:34: in main chunk
-                                                                                                        [C]: in ?
-                                                                                                                 ~/rejoin $
+Display size (px): 720x1280
+                           Grid: 2x2  margin=20  gap=12
+
+                                                       --- #1 Clone1 (com.apengjers.v3) cell=col1,row1 ---
+                   target rect : (20,20)-(354,634)
+                                                    assumed cur : (0,0)-(720,1280)
+                                                                                    resize delta: (-386,-666)  move-to top-left: (20,20)
+                                               --- #2 Clone2 (com.apengjers.v4) cell=col2,row1 ---
+           target rect : (366,20)-(700,634)
+                                             assumed cur : (0,0)-(720,1280)
+                                                                             resize delta: (-386,-666)  move-to top-left: (366,20)
+                                         --- #3 Clone3 (com.apengjers.v5) cell=col1,row2 ---
+     target rect : (20,646)-(354,1260)
+                                        assumed cur : (0,0)-(720,1280)
+                                                                        resize delta: (-386,-666)  move-to top-left: (20,646)
+                                    --- #4 Clone4 (com.apengjers.v6) cell=col2,row2 ---
+                                                                                         target rect : (366,646)-(700,1260)
+                                    assumed cur : (0,0)-(720,1280)
+                                                                    resize delta: (-386,-666)  move-to top-left: (366,646)
+
+                                 Keys to sanity-check:
+                                                        1. target rect fits each quadrant (looks like display.md).
+                           2. resize delta sign: + grows, - shrinks (handle bottom-right).
+   3. assumed 'cur' matches reality; if not set config.windowLayout.defaultRect /
+                                                                                      defaultLeft/defaultTop so the relative drags start from the right spot.
+
+                                                                    Dry run only. Re-run with '--apply' to actually move/resize the windows.
+                                                   ~/rejoin $

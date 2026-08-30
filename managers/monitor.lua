@@ -2,7 +2,6 @@ local Logger = require("core.logger")
 local Timer = require("utils.timer")
 local Status = require("managers.status")
 local ProbeLog = require("utils.probe_log")
-local Config = require("core.config")
 
 local Monitor = {}
 local running = false
@@ -95,16 +94,6 @@ local function runSequentialLaunch(conf)
             Status.printSummary(instanceManager.getAll())
         end
     end
-
-    -- All clones are Running: arrange them into the configured grid (see display.md).
-    pcall(function()
-        local conf = Config.get() or {}
-        local wl = type(conf.windowLayout) == "table" and conf.windowLayout or {}
-        if wl.enabled ~= false then
-            local Resize = require("managers.resize")
-            Resize.layoutGrid(instanceManager.getAll(), nil)
-        end
-    end)
 end
 
 function Monitor.start(conf, opts)

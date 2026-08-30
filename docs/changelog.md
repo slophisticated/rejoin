@@ -215,15 +215,13 @@ Initial Project
 - `debug_probe.lua`: removed all `dumpsys` calls — on this device they never list the clones and the heavy calls hung the terminal.
 - Automatic diagnostics on Menu 1 (Launch + Monitor): new `utils/probe_log.lua` writes one line per clone per monitor cycle to `launch.log` (time, status, running, isActive, pid, RSS, RSS threshold) plus recovery/relaunch event lines. No manual debug tool needed — after reproducing a bug, just read `launch.log`. New settings: `launchLogPath` (default `launch.log`), `launchLogEnabled`.
 
-## v0.6.0 — RAM/CPU optimization + floating-window auto-grid
+## v0.6.0 — RAM/CPU optimization
 
 - **RSS threshold tuned for real device**: observed running clones at ~1 GB and a force-close stub at ~188 MB, so `minRss` default raised 50 → **300 MB** (kept clean separation below real running, above the stub).
 - New `managers/optimizer.lua`: deprioritizes every Roblox clone with `renice 19` (lowest CPU priority) + `ionice -c 3` (idle I/O) so four floating windows stop fighting for CPU/RAM. JSON config `optimizer` (`enabled`, `renice`, `ionice`).
 - Optimizer is re-applied after every launch AND every recovery/relaunch — each clone restart gets a new pid, so tuning must be re-run each time.
-- New `managers/resize.lua`: auto-arrange the floating clones into a 2×2 grid (per `display.md` — Clone1 TL, Clone2 TR, Clone3 BL, Clone4 BR) by simulating the resize (bottom-right handle) + move (title-bar) drags via `input motionevent DOWN → MOVE… → UP`. JSON config `windowLayout` + per-instance `grid = {col,row}`.
-- Because `dumpsys` doesn't list these clones, all window geometry (`marginPx`, `cellGapPx`, `handleInsetPx`, `titleGrabInsetY`, `defaultRect`, drag step counts) is configurable for on-device calibration.
-- New diagnostic tool `debug_resize.lua` (`lua debug_resize.lua` / `--apply`) printing display size, per-clone grid cell, target rect and computed drag deltas before actually issuing gestures.
-- Fix: `Shell.exec` returns `(ok, output)`; any `pcall(function() return Shell.exec(...) end)` previously captured the boolean as the "output string", crashing on `debug_resize.lua` (`attempt to index a boolean value` at `resize.lua:29`) and would also have crashed `optimizer.lua`/`probe_log.lua` during Menu 1. All sites now capture the 3rd pcall value (`local ok, _, out = pcall(...)`).
+- Fix: `Shell.exec` returns `(ok, output)`; any `pcall(function() return Shell.exec(...) end)` previously captured the boolean as the "output string" (crashes with `attempt to index a boolean value`) and would have crashed `optimizer.lua`/`probe_log.lua` during Menu 1. All sites now capture the 3rd pcall value (`local ok, _, out = pcall(...)`).
+- Removed the experimental auto-resize (2×2 grid / `windowLayout` / `debug_resize.lua` / `display.md`) — results were poor, reverted to keep only the optimizer.
 
 ## Upcoming
 
