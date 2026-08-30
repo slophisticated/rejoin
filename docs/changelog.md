@@ -213,6 +213,7 @@ Initial Project
 - New diagnostic tool `debug_probe.lua` (run `lua debug_probe.lua`) printing per-clone `pidof`/`ps` RSS/state plus the `isActive` decision vs the RSS threshold.
 - `utils/shell.lua`: every shell command now runs under `timeout` (default 10s, configurable via `shellTimeout`) so a hung `su`/`dumpsys` call can no longer freeze the tool and stop Termux accepting input.
 - `debug_probe.lua`: removed all `dumpsys` calls — on this device they never list the clones and the heavy calls hung the terminal.
+- Automatic diagnostics on Menu 1 (Launch + Monitor): new `utils/probe_log.lua` writes one line per clone per monitor cycle to `launch.log` (time, status, running, isActive, pid, RSS, RSS threshold) plus recovery/relaunch event lines. No manual debug tool needed — after reproducing a bug, just read `launch.log`. New settings: `launchLogPath` (default `launch.log`), `launchLogEnabled`.
 
 ## Upcoming
 

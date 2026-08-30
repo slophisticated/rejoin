@@ -20,6 +20,10 @@ return {
     -- Timeout (seconds) for each shell command (via the `timeout` tool) so a hung
     -- su/dumpsys call can't freeze the whole tool / stop the terminal accepting input.
     shellTimeout = 10,
+    -- Automatic per-cycle diagnostics: written to this file whenever the app is
+    -- launched via Menu 1 (Launch + Monitor). Shows running/isActive/RSS per clone.
+    launchLogPath = "launch.log",
+    launchLogEnabled = true,
     -- Optional: if you want to attempt su-copy into app storage, set appAutoExecutePath to a writable path (requires root)
     -- appAutoExecutePath = "/data/data/<package>/files/autoexecute",
     instances = {

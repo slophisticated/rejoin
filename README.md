@@ -151,7 +151,8 @@ Catatan link:
 rejoin/
 ├── main.lua                    # entry point + main menu
 ├── setup.sh                    # setup skrip Termux
-├── debug_probe.lua             # alat diagnostik: cek isRunning/isActive per clone
+├── debug_probe.lua             # alat diagnostik manual: cek isRunning/isActive per clone
+├── launch.log                  # auto-debug tiap siklus menu 1 (Launch + Monitor)
 ├── config/
 │   ├── config.lua              # konfigurasi aktif (dibuat otomatis dr template)
 │   ├── template.lua            # template konfigurasi
@@ -173,7 +174,8 @@ rejoin/
 │   ├── recovery.lua            # engine recovery
 │   └── autoexecute.lua         # deploy/inject AutoExecute
 ├── utils/
-│   ├── shell.lua               # eksekusi shell
+│   ├── shell.lua               # eksekusi shell (dengan timeout anti-hang)
+│   ├── probe_log.lua           # auto-debug per siklus -> launch.log
 │   ├── android.lua             # wrapper am/intent
 │   ├── file.lua, json.lua, timer.lua
 └── data/

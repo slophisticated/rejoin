@@ -1,6 +1,7 @@
 local Logger = require("core.logger")
 local Timer = require("utils.timer")
 local Status = require("managers.status")
+local ProbeLog = require("utils.probe_log")
 
 local Monitor = {}
 local running = false
@@ -59,6 +60,8 @@ function Monitor.start(conf)
     interrupted = false
     Status.reset()
     Status.resetDashboard()
+    ProbeLog.configure(conf)
+    ProbeLog.init()
     installSignalHandler()
     -- Full-screen dashboard: hide console log lines while monitoring so they don't push
     -- the dashboard around (log lines still go to the log file).
@@ -69,6 +72,7 @@ function Monitor.start(conf)
 
     while running do
         local instances = instanceManager.getAll()
+        local statuses = {}
         for i, inst in ipairs(instances) do
             local id = inst.id or i
             local name = tostring(inst.name or id)
@@ -79,6 +83,7 @@ function Monitor.start(conf)
             local status
             local okStatus, resStatus = pcall(function() return Status.check(inst) end)
             status = okStatus and resStatus or "unknown"
+            statuses[id] = status
 
             -- If frozen/stuck long enough, relaunch the app.
             local timeToRelaunch = false
@@ -89,13 +94,16 @@ function Monitor.start(conf)
             if timeToRelaunch then
                 Logger.warn(string.format("Monitor: instance %s frozen too long; relaunching", name))
                 Status.beginRecovery(id)
+                ProbeLog.line(string.format("[%s] EVENT relaunch_begin %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
                 local r_ok, r_err = pcall(function()
                     return recoveryManager.relaunch(inst)
                 end)
                 if not r_ok or not r_err then
                     Logger.error(string.format("Monitor: relaunch failed for %s: %s", name, tostring(r_err)))
+                    ProbeLog.line(string.format("[%s] EVENT relaunch_failed %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
                 else
                     Logger.info(string.format("Monitor: relaunched %s", name))
+                    ProbeLog.line(string.format("[%s] EVENT relaunch_success %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
                 end
                 Status.endRecovery(id)
             end
@@ -124,15 +132,19 @@ function Monitor.start(conf)
                     -- mark as recovering and run recovery (synchronous). This avoids overlapping recoveries.
                     setRecovering(id, true)
                     Status.beginRecovery(id)
+                    ProbeLog.line(string.format("[%s] EVENT recovery_begin %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
                     local p_ok, recovered = pcall(function()
                         return recoveryManager.checkAndRecover(inst)
                     end)
                     if not p_ok then
                         Logger.error(string.format("Monitor: recovery raised an error for %s: %s", name, tostring(recovered)))
+                        ProbeLog.line(string.format("[%s] EVENT recovery_error %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
                     elseif recovered then
                         Logger.info(string.format("Monitor: recovery succeeded for %s", name))
+                        ProbeLog.line(string.format("[%s] EVENT recovery_success %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
                     else
                         Logger.error(string.format("Monitor: recovery failed for %s (all attempts)", name))
+                        ProbeLog.line(string.format("[%s] EVENT recovery_failed %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
                     end
                     Status.endRecovery(id)
                     setRecovering(id, false)
@@ -140,6 +152,11 @@ function Monitor.start(conf)
             end
 
             if not running then break end
+        end
+
+        -- Automatic per-cycle diagnostics (Menu 1 flow) — evidence for launch.log.
+        if running then
+            pcall(function() return ProbeLog.scan(instances, statuses) end)
         end
 
         -- Print the per-instance status table for the user to see.
