@@ -63,6 +63,8 @@ function Monitor.start(conf)
     -- Full-screen dashboard: hide console log lines while monitoring so they don't push
     -- the dashboard around (log lines still go to the log file).
     Logger.setConsoleVisible(false)
+    -- Clear the screen so leftover menu/launch text doesn't sit above the dashboard.
+    io.write("\27[2J\27[H")
     Logger.info("Monitor: starting (interval=" .. tostring(interval) .. ")")
 
     while running do
@@ -98,9 +100,12 @@ function Monitor.start(conf)
                 Status.endRecovery(id)
             end
 
-            -- Legacy health check / recovery for offline instances (process not running).
-            local healthy = (status == "ingame" or status == "starting" or status == "freeze")
-            if not healthy and pkg then
+            -- Health is based on the REAL process state every cycle (not the status
+            -- memory), so a clone whose UI was closed is detected and recovered. Previously
+            -- a stale "ingame" status memory kept the instance forever "healthy" and the
+            -- recovery was never triggered (the app stayed closed).
+            local healthy = false
+            if pkg then
                 local ok, res = pcall(function() return apkManager.isRunning(pkg) end)
                 healthy = ok and res
             end

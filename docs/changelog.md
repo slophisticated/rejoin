@@ -189,6 +189,18 @@ Initial Project
   - Removed the startup debug prints (`monitorInterval`, `instance count`).
   - Option `1) Launch All + Monitor` now hides console logging for the whole launch phase (`Logger.setConsoleVisible(false)`), strips all per-clone progress text, and goes **straight to the dashboard** once the (still sequential, still waiting) launch finishes.
 
+## v0.4.9 — clean start + exact process detection (closed app now reopens)
+
+- `managers/monitor.lua`:
+  - `Monitor.start` now **clears the screen** (`\27[2J\27[H`) right before the dashboard so leftover menu text doesn't sit above it — picking `1)` goes straight to a clean full-screen dashboard.
+  - Instance health is now based on the **real process state every cycle** (`apkManager.isRunning`), no longer inherited from a stale status memory (`ingame/starting/freeze`). This ensures a closed app is detected and recovered instead of staying "healthy" forever.
+- `managers/apk.lua` — `isRunning`:
+  - Root cause of "app closed but not reopening": the process match included sub-processes (`com.apengjers.v3:p0`) that keep running as background services after the UI is swiped away, so `isRunning` stayed `true` → status stuck at `ingame` → recovery was never triggered.
+  - Now matches the clone's **exact main process name only** (`com.apengjers.v3`, no trailing `:`), so once the UI is closed (main process gone) the instance is seen as not-running and the monitor reopens/re-covers it.
+- `managers/status.lua`:
+  - Status cells no longer append the color name (`Resetting (Yellow)` → **`Resetting`**), still colorized by status.
+  - Removed the legend block (`* ... = ...`) — the Ctrl+C footer hint is kept.
+
 ## Upcoming
 
 - Shell Wrapper

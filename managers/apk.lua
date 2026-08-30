@@ -100,17 +100,19 @@ local function escapeRegex(s)
 end
 
 -- Check whether a package has a running process. Tries pidof, then pgrep, then ps.
--- Matching is anchored to the START of the process command followed by ':' (a
--- sub-process) or end-of-line, so a clone like com.apengjers.v3 only counts when ITS
--- own process is running — not when some OTHER process merely contains the name as a
--- substring (which previously kept status stuck at "ingame" after the app was closed).
+-- Matching is anchored to the START of the process command. A clone's MAIN process runs
+-- under its own exact package name (e.g. com.apengjers.v3), so we match that name EXACTLY —
+-- NOT sub-processes like `com.apengjers.v3:p0` (background services that keep running after
+-- the UI is swiped away, which previously left `isRunning` true -> status stuck at "ingame"
+-- -> the closed app was never recovered/open again).
 -- Returns true if any method finds a matching process, false otherwise.
 function APKManager.isRunning(packageName)
     if not packageName or packageName == "" then return false end
     local pkg = packageName:gsub("['\" ]", "")
     if pkg == "" then return false end
 
-    local pattern = "^" .. escapeRegex(pkg) .. "($|:)"
+    -- Match the exact main process name only (no trailing `:` sub-process).
+    local pattern = "^" .. escapeRegex(pkg) .. "$"
 
     -- 1) pidof (exact process-name match; busybox sometimes missing it)
     local ok, out = Shell.exec(string.format("pidof %s", pkg))
@@ -118,20 +120,20 @@ function APKManager.isRunning(packageName)
         return true
     end
 
-    -- 2) pgrep -f with an anchored pattern matching this clone's process command start
+    -- 2) pgrep -f with a pattern matching this clone's exact process command
     ok, out = Shell.exec(string.format("pgrep -f '%s'", pattern))
     if ok and out and out ~= "" and out ~= "(dry-run)" then
         return true
     end
 
-    -- 3) ps -A fallback (compare the process COMMAND start without regex, since ps lines
-    --    are columnar and the ERE pattern would not match Lua's pattern syntax)
+    -- 3) ps -A fallback (compare the process COMMAND exactly, since ps lines are columnar
+    --    and the ERE pattern above would not match Lua's pattern syntax)
     ok, out = Shell.exec("ps -A")
     if ok and out and out ~= "(dry-run)" then
         for line in (out or ""):gmatch("[^\r\n]+") do
             local cmd = line:match("(%S+)$")
             if cmd then
-                if cmd == pkg or cmd:sub(1, #pkg + 1) == pkg .. ":" then
+                if cmd == pkg then
                     return true
                 end
             end

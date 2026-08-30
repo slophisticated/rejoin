@@ -259,17 +259,6 @@ end
 -- position and records its height; later calls move the cursor up and redraw over the
 -- same rows (no full-screen clear), then clear any leftover below. Rows use CRLF so
 -- the cursor returns to column 0 each line on Termux (LF alone drifts rows rightward).
--- Color-name for each status, shown as "Label (Color)" to match the example dashboard.
-local STATUS_NAME = {
-    ingame    = "Green",
-    stuck     = "Red",
-    freeze    = "Red",
-    recovery  = "Yellow",
-    resetting = "Yellow",
-    starting  = "Blue",
-    offline   = "Gray",
-}
-
 -- Pad a plain string into a column cell of `width` wrapping spaces. `text` has no
 -- ANSI codes so padding is based on visible characters; color is applied separately.
 local function padCell(text, width)
@@ -316,7 +305,7 @@ function Status.printSummary(instances)
     table.insert(sb, mid)
 
     if not instances or #instances == 0 then
-        table.insert(sb, bodyRow("(no instances)", "Offline (Gray)", C.dim))
+        table.insert(sb, bodyRow("(no instances)", "Offline", C.dim))
         table.insert(sb, mid)
     else
         for _, inst in ipairs(instances) do
@@ -326,8 +315,7 @@ function Status.printSummary(instances)
             local status = s and s.status or "offline"
             local ui = STATUS_UI[status] or { status, C.dim }
             local label = ui[1] or "Unknown"
-            local cname = STATUS_NAME[status] or "Gray"
-            table.insert(sb, bodyRow(pkg, label .. " (" .. cname .. ")", ui[2]))
+            table.insert(sb, bodyRow(pkg, label, ui[2]))
         end
         table.insert(sb, mid)
     end
@@ -336,12 +324,8 @@ function Status.printSummary(instances)
     table.insert(sb, bodyRow("Storage Available", storageLine() or "--"))
     table.insert(sb, bot)
 
-    -- Legend (color key) below the table.
+    -- Footer hint below the table.
     table.insert(sb, " ")
-    table.insert(sb, C.yellow .. "* Resetting & Recovery" .. C.dim .. " = Yellow" .. C.reset)
-    table.insert(sb, C.red    .. "* Stuck"               .. C.dim .. " = Red"    .. C.reset)
-    table.insert(sb, C.blue   .. "* Starting"            .. C.dim .. " = Blue"   .. C.reset)
-    table.insert(sb, C.green  .. "* Running"             .. C.dim .. " = Green"  .. C.reset)
     table.insert(sb, C.dim .. "(tekan Ctrl+C untuk berhenti)" .. C.reset)
 
     -- Reposition on top of the previous frame if we already drew one, then redraw.
@@ -351,7 +335,7 @@ function Status.printSummary(instances)
     io.write("\27[?25l")                                  -- hide cursor (smoother refresh)
     io.write(table.concat(sb, "\r\n") .. "\r\n")          -- CRLF so every row resets column
     io.write("\27[J")                                     -- clear any leftover below
-    frameHeight = #sb                                     -- full frame incl. legend + footer
+    frameHeight = #sb                                     -- full frame incl. footer
     io.write("\27[?25h")                                  -- show cursor again
     io.flush()
 end
