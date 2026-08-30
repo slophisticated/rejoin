@@ -363,11 +363,7 @@ function Status.printSummary(instances)
             local status = s and s.status or "offline"
             local ui = STATUS_UI[status] or { status, C.dim }
             local label = ui[1] or "Unknown"
-            -- Show per-instance memory so it's obvious which clone has dropped to a
-            -- low-RSS stub (Freeze) vs which is genuinely running (Running · 235MB).
-            local rssKb = s and s.rssKb
-            local rssTxt = (rssKb and rssKb > 0) and (math.floor(rssKb / 1024) .. "MB") or "-"
-            table.insert(sb, bodyRow(pkg, label .. " · " .. rssTxt, ui[2]))
+            table.insert(sb, bodyRow(pkg, label, ui[2]))
         end
         table.insert(sb, mid)
     end

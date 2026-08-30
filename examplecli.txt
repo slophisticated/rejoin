@@ -11,8 +11,3 @@
 │   Memory Usage        |   79% (555MB Free)    │
 │   Storage Available   |   300GB Free          │
 ╰───────────────────────┴───────────────────────╯
-
-*Resetting & Recovery Yellow
-*Stuck Red
-*Starting Blue
-*Running Green
