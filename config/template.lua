@@ -23,7 +23,7 @@ return {
     -- readable logcat, more reliable with root).
     anrCheckEnabled = true,
     -- Minimum resident memory (MB) for a clone's process to be considered ACTIVE.
-    -- A running clone uses ~230 MB while a force-close stub is only ~7 MB, so anything
+    -- A running clone reads ~1 GB while a force-close stub is ~188 MB, so anything
     -- below this is treated as "not really running" and gets relaunched. Tune if needed.
     minRss = 300,
     -- Timeout (seconds) for each shell command (via the `timeout` tool) so a hung
@@ -33,6 +33,32 @@ return {
     -- launched via Menu 1 (Launch + Monitor). Shows running/isActive/RSS per clone.
     launchLogPath = "launch.log",
     launchLogEnabled = true,
+
+    -- Deprioritize the Roblox clones with renice/ionice to cut RAM/CPU contention when
+    -- several floating windows run at once. Applied to every clone after launch/recovery
+    -- (the process gets a new pid on each relaunch, so tuning is re-applied each time).
+    optimizer = {
+        enabled = true,
+        renice = 19,   -- CPU scheduling priority (higher = lower). 19 = lowest.
+        ionice = 3,    -- I/O class: 0=none,1=realtime,2=best-effort,3=idle.
+    },
+    -- Auto-arrange the floating windows into a grid. See display.md (2x2: 1=TL,2=TR,
+    -- 3=BL,4=BR). Because dumpsys doesn't list these clones, window rects are estimated
+    -- from a default origin + relative drags; all geometry here is for on-device tuning.
+    windowLayout = {
+        enabled = true,
+        cols = 2,
+        rows = 2,
+        marginPx = 20,
+        cellGapPx = 12,
+        handleInsetPx = 24,   -- distance of the resize handle from the window corner (px)
+        titleGrabInsetY = 24, -- title-bar grab point below the window's top edge (px)
+        moveSteps = 16,
+        resizeSteps = 12,
+        stepDelayMs = 30,
+        -- defaultRect = {left,top,right,bottom}  -- set if the cold-start origin differs
+        -- from full-screen, so relative drags land in the right quadrant.
+    },
 
     -- "Launch All" launches clones ONE AT A TIME, waiting for each to reopen before
     -- starting the next (so floating-window clones each get a chance to appear).

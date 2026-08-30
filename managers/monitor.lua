@@ -2,6 +2,7 @@ local Logger = require("core.logger")
 local Timer = require("utils.timer")
 local Status = require("managers.status")
 local ProbeLog = require("utils.probe_log")
+local Config = require("core.config")
 
 local Monitor = {}
 local running = false
@@ -10,6 +11,7 @@ local interval = 5
 local instanceManager = nil
 local recoveryManager = nil
 local apkManager = nil
+local Optimizer = nil
 
 -- Install a SIGINT handler via lua-posix so Ctrl+C actually stops monitoring on
 -- Termux. Without a handler, `os.execute("sleep")` inside Timer.sleep swallows the
@@ -86,11 +88,23 @@ local function runSequentialLaunch(conf)
         end
 
         Status.endStarting(id)
+        -- New process got a new pid during this launch: deprioritize it now.
+        pcall(function() return Optimizer.applyForInstance(inst) end)
         ProbeLog.line(string.format("[%s] EVENT launch_done #%d %s (%s) waited=%ds", os.date("%H:%M:%S"), i, name, tostring(pkg), waited))
         if running then
             Status.printSummary(instanceManager.getAll())
         end
     end
+
+    -- All clones are Running: arrange them into the configured grid (see display.md).
+    pcall(function()
+        local conf = Config.get() or {}
+        local wl = type(conf.windowLayout) == "table" and conf.windowLayout or {}
+        if wl.enabled ~= false then
+            local Resize = require("managers.resize")
+            Resize.layoutGrid(instanceManager.getAll(), nil)
+        end
+    end)
 end
 
 function Monitor.start(conf, opts)
@@ -98,6 +112,7 @@ function Monitor.start(conf, opts)
     instanceManager = require("managers.instance")
     recoveryManager = require("managers.recovery")
     apkManager = require("managers.apk")
+    Optimizer = require("managers.optimizer")
     Status.configure(conf)
     opts = opts or {}
 
@@ -162,6 +177,8 @@ function Monitor.start(conf, opts)
                 else
                     Logger.info(string.format("Monitor: relaunched %s", name))
                     ProbeLog.line(string.format("[%s] EVENT relaunch_success %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
+                    -- relaunch() restart changes the pid; re-apply deprioritization.
+                    pcall(function() return Optimizer.applyForInstance(inst) end)
                 end
                 Status.endRecovery(id)
             end
@@ -175,7 +192,7 @@ function Monitor.start(conf, opts)
                 -- A force-close leaves a low-RSS stub process alive, so process existence
                 -- (isRunning) alone reports it as healthy forever and it's never reopened.
                 -- Decide health from the RSS threshold (isActive): a running clone has
-                -- ~235 MB while a force-close stub is only ~7 MB.
+                -- ~1 GB while a force-close stub is only ~188 MB.
                 local ok, res = pcall(function() return apkManager.isActive(pkg) end)
                 healthy = ok and res
             end
@@ -200,6 +217,8 @@ function Monitor.start(conf, opts)
                     elseif recovered then
                         Logger.info(string.format("Monitor: recovery succeeded for %s", name))
                         ProbeLog.line(string.format("[%s] EVENT recovery_success %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
+                        -- checkAndRecover restarts the process -> new pid -> re-tune it.
+                        pcall(function() return Optimizer.applyForInstance(inst) end)
                     else
                         Logger.error(string.format("Monitor: recovery failed for %s (all attempts)", name))
                         ProbeLog.line(string.format("[%s] EVENT recovery_failed %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))

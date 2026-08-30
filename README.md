@@ -18,6 +18,9 @@ Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termu
 - **Monitor** — loop tunggal, cek tiap instance bergantian. Jika satu instance mati, hanya instance itu yang di-recovery; instance lain tetap diproses.
 - **Live status per instance** — monitor menampilkan status tiap instance (`offline`, `starting`, `ingame`, `stuck`, `freeze`, `recovery`) setiap siklus.
 - **Auto relaunch freeze** — app yang freeze/stuck lebih dari `freezeTimeout` (default 5 menit) otomatis di-force-stop & di-relaunch.
+- **RSS-based health** — clone dideteksi benar-benar jalan (bukan sekadar proses hidup) lewat RSS ≥ `minRss` (default 300 MB). Clone yang di-close (stub RSS rendah) otomatis di-relaunch.
+- **Optimasi RAM/CPU** — semua clone di-deprioritze (`renice 19` + `ionice idle`) supaya 4 floating window tidak rebutan CPU/RAM. Di-apply ulang tiap launch/recovery (karena pid berubah).
+- **Auto-grid floating window** — floating window clone otomatis disusun jadi grid 2×2 (sesuai `display.md`): Clone1 TL, Clone2 TR, Clone3 BL, Clone4 BR, via simulasi drag resize+move.
 - **Recovery** — force-stop → launch → inject AutoExecute → buka game/private server → lanjut monitoring. Dicoba berulang (sesuai `recoveryRetries`).
 - **AutoExecute (global)** — satu script dipakai semua instance.
 - **Auto Join** — buka link game/private server dari tiap instance secara otomatis saat recovery.
@@ -109,13 +112,31 @@ return {
     freezeTimeout = 300,        -- detik app boleh freeze sebelum di-relaunch (5 menit)
     gracePeriod = 30,           -- detik setelah launch sebelum dinilai ingame vs stuck
     anrCheckEnabled = true,     -- deteksi ANR via logcat (best-effort, lebih andal dgn root)
+    minRss = 300,               -- MB ambang proses clone dianggap AKTIF (RSS)
+
+    -- Deprioritze semua clone siram RAM/CPU.
+    optimizer = {
+        enabled = true,
+        renice = 19,   -- prioritas CPU (makin besar makin rendah; 19 = terkecil)
+        ionice = 3,    -- kelas I/O (3 = idle)
+    },
+
+    -- Auto-susun floating window jadi grid 2x2 (lihat display.md).
+    windowLayout = {
+        enabled = true,
+        cols = 2, rows = 2,
+        marginPx = 20, cellGapPx = 12,
+        handleInsetPx = 24, titleGrabInsetY = 24,
+        moveSteps = 16, resizeSteps = 12, stepDelayMs = 30,
+    },
 
     instances = {
         {
             id = 1,
             name = "Main",
             package = "com.apengjers.v3",
-            privateServer = "https://www.roblox.com/games/107778070777162/Steal-An-Egg"
+            privateServer = "https://www.roblox.com/games/107778070777162/Steal-An-Egg",
+            grid = { col = 1, row = 1 },   -- sel grid (opsional; default ikut urutan)
         },
         {
             id = 2,
@@ -152,6 +173,7 @@ rejoin/
 ├── main.lua                    # entry point + main menu
 ├── setup.sh                    # setup skrip Termux
 ├── debug_probe.lua             # alat diagnostik manual: cek isRunning/isActive per clone
+├── debug_resize.lua            # alat kalibrasi auto-grid: tampilkan rect target + drag delta
 ├── launch.log                  # auto-debug tiap siklus menu 1 (Launch + Monitor)
 ├── config/
 │   ├── config.lua              # konfigurasi aktif (dibuat otomatis dr template)
@@ -168,10 +190,12 @@ rejoin/
 │   ├── logs_cli.lua            # viewer log
 │   └── runtime.lua             # flag runtime (dry-run)
 ├── managers/
-│   ├── apk.lua                 # launch, force-stop, isRunning, resolve-activity
+│   ├── apk.lua                 # launch, force-stop, isRunning, isActive, getRSSinKB
 │   ├── instance.lua            # manager instance
 │   ├── monitor.lua             # loop monitor
 │   ├── recovery.lua            # engine recovery
+│   ├── optimizer.lua           # renice/ionice deprioritasi clone
+│   ├── resize.lua              # auto-grid floating window (resize+move via input)
 │   └── autoexecute.lua         # deploy/inject AutoExecute
 ├── utils/
 │   ├── shell.lua               # eksekusi shell (dengan timeout anti-hang)

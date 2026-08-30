@@ -122,7 +122,7 @@ function Status.check(instance)
     local active = false
     if pkg then
         -- Health is decided from the RSS threshold (isActive): a force-close leaves a
-        -- low-RSS stub process alive (~7 MB vs ~235 MB for a running clone), so a process
+        -- low-RSS stub process alive (~188 MB vs ~1 GB for a running clone), so a process
         -- that exists but stays below the threshold means its UI is gone.
         local okP, resP = pcall(function() return APK.isRunning(pkg) end)
         procExists = okP and resP
