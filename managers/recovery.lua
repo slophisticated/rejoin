@@ -2,7 +2,6 @@ local Logger = require("core.logger")
 local APK = require("managers.apk")
 local AutoExecute = require("managers.autoexecute")
 local UtilsAndroid = require("utils.android")
-local RobloxLink = require("utils.roblox_link")
 local Timer = require("utils.timer")
 local Config = require("core.config")
 
@@ -23,21 +22,57 @@ local function isHealthy(instance)
     return false
 end
 
--- Open the instance game/private-server link, normalizing it to a safe form first.
+-- Build the proven auto-join deep link (roblox://placeId=<id>) for any public-style
+-- link, self-contained so it never depends on utils/roblox_link syncing to the device.
+-- Private-server /share links must stay untouched (no placeId).
+local function isShareLink(url)
+    return url ~= nil and url:find("roblox%.com/share", 1, true) ~= nil
+end
+
+-- Extract a place id tolerantly from many Roblox link shapes:
+--   https://www.roblox.com/games/<id>/<name>
+--   ...?placeId=<id>  /  roblox://placeId=<id>
+--   roblox://experiences/<id>
+local function extractPlaceIdLenient(url)
+    if not url then return nil end
+    local lower = url:lower()
+    if lower:find("placeid=", 1, true) then
+        local id = url:lower():match("placeid=(%d+)")
+        if id then return id end
+    end
+    local g = url:match("/games/(%d+)")
+    if g then return g end
+    local e = url:match("/experiences/(%d+)")
+    if e then return e end
+    return nil
+end
+
+-- Open the instance game/private-server link.
 -- Best-effort: logs and does not fail the caller on a bad/missing link.
 local function openGameLink(instance)
     local pkg = instance and instance.package
     if not instance.privateServer then
         return true
     end
-    local okLink, link = RobloxLink.normalize(instance.privateServer)
-    if okLink then
-        Logger.info("Recovery: opening game link for " .. tostring(instance.name or pkg) .. ": " .. tostring(link))
-        UtilsAndroid.openURL(link, pkg)
-        return true
+
+    local link
+    if isShareLink(instance.privateServer) then
+        -- Private server: no placeId, must keep the exact /share link.
+        link = instance.privateServer
+    else
+        local placeId = extractPlaceIdLenient(instance.privateServer)
+        if placeId then
+            -- The one form proven (on-device) to auto-join a clone and reach its account.
+            link = "roblox://placeId=" .. placeId
+        else
+            -- Unknown shape: keep as-is (letting Android/any handler decide).
+            link = instance.privateServer
+        end
     end
-    Logger.warn("Recovery: skipping invalid game link for " .. tostring(instance.name or pkg) .. ": " .. tostring(link))
-    return false
+
+    Logger.info("Recovery: opening game link for " .. tostring(instance.name or pkg) .. ": " .. tostring(link))
+    UtilsAndroid.openURL(link, pkg)
+    return true
 end
 
 -- Launch an instance's app and join its game (best-effort), no retry loop.

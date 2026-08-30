@@ -140,6 +140,11 @@ Initial Project
 - `managers/recovery.lua launchAndJoin`: instances with a `privateServer` are now **force-stopped first** (`APK.forceStop(pkg)`, 1s settle) before the join deep link `roblox://placeId=<id>` + `-p <clone>` is sent. On-device proof: option-A join only auto-enters the map from a *cold* clone; if the clone is still warm the link just shows the game page. This makes the tool mirror the manual procedure that worked (force-stop → join link).
 - Instances without a link still use `APK.launch(pkg)`.
 
+## v0.4.4 — self-contained join link in recovery.lua
+
+- `managers/recovery.lua`: `openGameLink` is now **self-contained** — it extracts the place id and builds `roblox://placeId=<id>` directly (no longer depends on `utils/roblox_link` syncing to the device). Handles `https://www.roblox.com/games/<id>/...`, `?placeId=<id>`, `roblox://placeId=<id>`, `roblox://experiences/<id>`. Private-server `/share` links stay untouched. Removed the unused `RobloxLink` require. This guarantees the tool sends the proven auto-join form regardless of other files.
+- Prior fix (v0.4.3) already force-stops the clone (cold start) before sending the link.
+
 ## Upcoming
 
 - Shell Wrapper

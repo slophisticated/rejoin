@@ -1,93 +1,28 @@
-# Rejoin Engine - DEBUG: verifikasi roblox_link.lua di DEVICE
-# Tujuan: memastikan file `utils/roblox_link.lua` di device menghasilkan deep link
-# `roblox://placeId=<id>`, bukan mengembalikan link https asli (yang menyebabkan tool
-# selalu membuka halaman game).
+# Rejoin Engine - FIX v0.4.4 (satu file, PASTI bisa)
+#
+# Masalah: tool selama ini mengirim link HTTPS asli (https://www.roblox.com/games/...)
+# bukan deep link roblox://placeId=<id>, makanya selalu kebuka halaman game.
+# Fixed: sekarang managers/recovery.lua BANGUN sendiri link roblox://placeId=<id>
+# dari privateServer (tanpa bergantung file lain).
 
 # ============================================================
-# LANGKAH 1 - salin file debug ke device (dari PC), letakkan di folder proyek:
-#   debug_normalize.lua   ->   ~/rejoin/debug_normalize.lua
-# (cara: copy via termux-share / adb / atau tempel isinya manual)
+# STEP 1 - SALIN 1 FILE dari PC ke device:
+#   managers/recovery.lua   ->   ~/rejoin/managers/recovery.lua
+# (PASTIKAN tertimpa, bukan diskip)
 
 # ============================================================
-# LANGKAH 2 - jalankan di Termux (dari folder ~/rejoin):
-lua debug_normalize.lua
+# STEP 2 - VERIFIKASI file recovery.lua yang baru ada di device (harus menghasilkan "extractPlaceIdLenient"):
+grep -n "extractPlaceIdLenient" managers/recovery.lua
+
+# Kalau output KOSONG -> file belum tertimpa, ulangi STEP 1.
+# Kalau ada baris -> file sudah versi baru, lanjut STEP 3.
 
 # ============================================================
-# LANGKAH 3 - cek baris yang mengandung konversi di file device:
-grep -n "roblox://placeId" utils/roblox_link.lua
-echo "---JUMLAH BARIS FILE DEVICE---"
-wc -l utils/roblox_link.lua
+# STEP 3 - JALANKAN TOOL (Launch All = opsi 1), lalu lihat log:
+#   data/rejoin.log (atau cek langsung saat monitor jalan)
+# Baris penentu, HARUS "roblox://placeId=..." (BUKAN https):
+#   Recovery: opening game link for <name>: roblox://placeId=107778070777162
+#   Android: opening URL roblox://placeId=107778070777162 (pkg=com.apengjers.vN)
 
-# ============================================================
-# Cara membaca hasil LANGKAH 2-3:
-#  - Jika LANGKAH 2 mencetak "OUT: ok=true link=roblox://placeId=107778070777162"
-#    untuk link publik -> file device SUDAH BENAR. Laporkan ke saya, kita cari bug lain.
-#  - Jika mencetak "OUT: ok=true link=https://www.roblox.com/games/107778070777162/Steal-An-Egg"
-#    (https asli, tidak dikonversi) -> walau file 81 baris & ada baris 74, berarti
-#    fungsi `extractPlaceId` di device yang TIDAK menyetel placeId. Lanjut ke LANGKAH 4
-#    untuk melihat isi fungsi itu persis.
-
-# ============================================================
-# LANGKAH 4 - tampilkan isi fungsi extractPlaceId di device (READ-ONLY):
-grep -n "function.extractPlaceId" utils/roblox_link.lua
-echo "===== ISI extractPlaceId (kira2 baris 18-40) ====="
-sed -n '18,40p' utils/roblox_link.lua
-echo "===== END ====="
-
-# ============================================================
-# LANGKAH 5 - setelah menimpa ulang ROBIKNA_LINK + DEBUG_NORMALIZE dari PC:
-#   * utils/roblox_link.lua   (versi TERBARU dgn log [roblox_link])
-#   * debug_normalize.lua     (versi TERBARU dgn searchpath/source)
-# Jalankan lagi:
-lua debug_normalize.lua
-
-~/rejoin $ grep -n "function.extractPlaceId" utils/roblox_link.lua
-22:local function extractPlaceId(url)
-~/rejoin $ echo "===== ISI extractPlaceId (kira2 baris 18-40) ====="
-===== ISI extractPlaceId (kira2 baris 18-40) =====
-~/rejoin $ sed -n '18,40p' utils/roblox_link.lua
-    return true
-end
-
--- Extract the raw place id from a Roblox game URL path segment.
-local function extractPlaceId(url)
-    -- https://www.roblox.com/games/<placeId>[/...]
-    local lower = url:lower()
-    if lower:find("roblox%.com/games/", 1, true) then
-        local rest = url:match("games/(%d+)")
-        if rest then return rest end
-    end
-    -- roblox://experiences/<placeId>
-    if lower:find("roblox://experiences/", 1, true) then
-        local rest = url:match("experiences/(%d+)")
-        if rest then return rest end
-    end
-    return nil
-end
-
--- Decide whether a link is a private-server /share link that must be kept as-is.
-local function isShareLink(url)
-    local lower = url:lower()
-    return lower:find("roblox%.com/share", 1, true) ~= nil
-~/rejoin $ echo "===== END ====="
-===== END =====
-
-~/rejoin $ lua debug_normalize.lua
-IN : https://www.roblox.com/games/107778070777162/Steal-An-Egg
-OUT: ok=true link=https://www.roblox.com/games/107778070777162/Steal-An-Egg
----
-IN : https://www.roblox.com/games/107778070777162
-OUT: ok=true link=https://www.roblox.com/games/107778070777162
----
-IN : roblox://placeId=107778070777162
-OUT: ok=true link=roblox://placeId=107778070777162
----
-~/rejoin $ grep -n "roblox://placeId" utils/roblox_link.lua
-49:--     roblox://experiences/<placeId>) are converted to roblox://placeId=<placeId>.
-70:    -- roblox://placeId=<id> is proven to auto-join and works per-clone when delivered
-74:        return true, string.format("roblox://placeId=%s", placeId)
-~/rejoin $ echo "---JUMLAH BARIS FILE DEVICE---"
----JUMLAH BARIS FILE DEVICE---
-~/rejoin $ wc -l utils/roblox_link.lua
-81 utils/roblox_link.lua
-~/rejoin $
+# Jika log sudah menunjukkan roblox://placeId=... dan tetap halaman game,
+# kabari saya hasilnya (dengan log + apa yang terlihat di layar).
