@@ -24,7 +24,7 @@ local InstanceManager = require("managers.instance")
 InstanceManager.load(Config.get())
 
 local _cfg = Config.get() or {}
-local minRssMb = tonumber(_cfg.minRss) or 50
+local minRssMb = tonumber(_cfg.minRss) or 300
 local rssThreshKb = minRssMb * 1024
 
 local instances = InstanceManager.getAll()

@@ -1,3 +1,13 @@
-  GNU nano 9.2                           launch.log                            Modified  -- rejoin auto-probe log 2026-08-31 01:53:15
-[01:55:08] EVENT recovery_begin https://www.roblox.com/games/107778070777162 (com.apengj>
-[01:55:10] EVENT recovery_success https://www.roblox.com/games/107778070777162 (com.apen>
+╭───────────────────────┬───────────────────────╮
+│                       │                       │
+│       Instance        │        Status         │
+│                       │                       │
+├───────────────────────┼───────────────────────┤
+│   com.apengjers.v5    │   Running · 1043MB   │┤
+│   com.apengjers.v3    │   Running · 188MB    ││
+│   com.apengjers.v4    │   Running · 1106MB   │┤
+│   com.apengjers.v6    │   Running · 1022MB   ││
+├───────────────────────┼───────────────────────┤
+│     Memory Usage      │   83% (689MB Free)    │
+│   Storage Available   │       76G Free        │
+╰───────────────────────┴───────────────────────╯

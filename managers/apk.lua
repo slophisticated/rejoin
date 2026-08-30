@@ -149,10 +149,11 @@ end
 -- On this device `dumpsys activity`/`dumpsys window` does NOT list the floating-window
 -- clones at all (even when fully running), so UI visibility can't be used. The signal
 -- that actually separates a running clone from a force-close stub is resident memory:
---    * running clone     ~235 MB  (RSS from `ps -A`, kB)
---    * force-close stub   ~7 MB
+--    * running clone    ~1 GB    (RSS from `ps -A`, kB)
+--    * force-close stub ~188 MB   (observed when the floating window was closed)
+--    * earliest running example seen ~235 MB (older build)
 -- So we treat a clone as ACTIVE only when its process exists AND its RSS is at or above
--- a threshold (config.minRss, default 50 MB). A low-RSS stub therefore reads as
+-- a threshold (config.minRss, default 300 MB). A low-RSS stub therefore reads as
 -- "not active" -> recovery relaunches it.
 --
 -- getRSSinKB(pkg): RSS in kilobytes from `ps -A`, or -1 if no process / not parseable.
@@ -166,7 +167,7 @@ local function rssThreshold()
         local v = tonumber(g and g.minRss)
         if v and v > 0 then return v * 1024 end -- config stored in MB -> kB
     end
-    return 50 * 1024 -- default 50 MB (in kB)
+    return 300 * 1024 -- default 300 MB (in kB)
 end
 
 function APKManager.getRSSinKB(packageName)
