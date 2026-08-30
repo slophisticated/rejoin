@@ -4,6 +4,11 @@
 package.path = "./?.lua;" .. (package.path or "")
 local RobloxLink = require("utils.roblox_link")
 
+print("searchpath:", package.searchpath("utils.roblox_link", package.path))
+local src = debug.getinfo(RobloxLink.normalize, "S") and debug.getinfo(RobloxLink.normalize, "S").source
+print("normalize source:", tostring(src))
+print("=======")
+
 local tests = {
     "https://www.roblox.com/games/107778070777162/Steal-An-Egg",
     "https://www.roblox.com/games/107778070777162",

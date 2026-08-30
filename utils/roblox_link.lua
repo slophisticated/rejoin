@@ -1,5 +1,16 @@
 local RobloxLink = {}
 
+-- Optional logger; falls back to print so this module also debugs standalone.
+local loggerOK, Logger = pcall(require, "core.logger")
+if not (loggerOK and Logger) then Logger = nil end
+local function dbg(msg)
+    if Logger and Logger.debug then
+        Logger.debug(msg)
+    else
+        io.write("[roblox_link] " .. msg .. "\n")
+    end
+end
+
 -- Validate a URL-ish string minimally so we don't pass junk to am start.
 local function looksLikeUrl(url)
     if not url or type(url) ~= "string" then return false end
@@ -70,6 +81,7 @@ function RobloxLink.normalize(url)
     -- roblox://placeId=<id> is proven to auto-join and works per-clone when delivered
     -- with -p <clone> (see Android.openURL). Delivered via -p, so no default-handler issue.
     local placeId = extractPlaceId(trimmed)
+    dbg("normalize url=" .. tostring(trimmed) .. " placeId=" .. tostring(placeId))
     if placeId then
         return true, string.format("roblox://placeId=%s", placeId)
     end
