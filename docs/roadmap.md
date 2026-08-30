@@ -28,7 +28,7 @@
 - [x] Monitor Engine (managers/monitor)
 - [x] Recovery Engine (managers/recovery)
 - [x] AutoExecute (managers/autoexecute)
-- [x] Auto Join (utils/roblox_link normalizer + recovery open link)
+- [x] Auto Join (recovery openGameLink self-contained deep link)
 - [x] Clone auto-detect (setup wizard resolve-activity detect)
 
 ---

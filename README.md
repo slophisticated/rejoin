@@ -174,7 +174,6 @@ rejoin/
 ├── utils/
 │   ├── shell.lua               # eksekusi shell
 │   ├── android.lua             # wrapper am/intent
-│   ├── roblox_link.lua         # normalisasi link game/private server
 │   ├── file.lua, json.lua, timer.lua
 └── data/
     ├── rejoin.log              # log runtime

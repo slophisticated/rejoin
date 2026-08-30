@@ -1,0 +1,21 @@
+-------------------------------------------------
+|                       |                       |
+|       Instance        |       Status          |
+|                       |                       |
+------------------------------------------------|
+|                       |                       |
+|   com.apengjers.v3    |   Running (Green)     |
+|                       |                       |
+|   com.apengjers.v4    |   Stuck (RED)         |
+|                       |                       |
+|   com.apengjers.v5    |   Recovery (Yellow)   |
+|                       |                       |
+|   com.apengjers.v6    |   Running (Green)     |
+|                       |                       |
+-------------------------------------------------
+|                       |                       |
+|   Memory Usage        |   79% (555MB Free)    |
+|                       |                       |
+|   Storage Available   |   300GB Free          |
+|                       |                       |
+-------------------------------------------------

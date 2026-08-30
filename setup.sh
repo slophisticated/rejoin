@@ -32,6 +32,15 @@ else
   fi
 fi
 
+# lua-posix: needed so Ctrl+C actually stops the monitor on Termux (a SIGINT handler is
+# installed when lua-posix is present). Only available for Lua PUC-Rio, NOT luajit.
+if command -v lua >/dev/null 2>&1 && ! (lua -v 2>&1 | grep -qi "luajit"); then
+  echo "Installing lua-posix (for Ctrl+C to stop the monitor)..."
+  pkg install -y lua-posix || echo "Warning: lua-posix install failed; Ctrl+C may not stop the monitor."
+else
+  echo "Warning: lua-posix is not available for luajit; Ctrl+C won't stop the monitor. Switch to 'lua' (pkg install lua) for full support."
+fi
+
 # Optional: luarocks and cjson
 echo "Attempting to install lua-cjson via luarocks (if luarocks installed)..."
 if command -v luarocks >/dev/null 2>&1; then
@@ -94,6 +103,10 @@ Next steps (on device):
 If you need to enable root-powered injection or copying into app storage, set appAutoExecutePath in config/config.lua to the target app folder (requires root), or use su/tsu as appropriate.
 
 If any commands fail, inspect the log at data/rejoin.log and share it for troubleshooting.
+
+Tip: the monitor shows a live status table and stops on Ctrl+C. For Ctrl+C to work,
+lua-posix must be installed:  pkg install lua-posix   (it is installed automatically
+by this script when using Lua, not luajit).
 
 EOF
 

@@ -139,29 +139,146 @@ function Status.isFreezeTimeout(id)
     return (os.time() - s.stuckSince) >= freezeTimeout
 end
 
--- Short human label for a status (keeps the summary one line per instance).
-local function shortLabel(status)
-    if status == "ingame" then return "running" end
-    return status or "unknown"
+-- ANSI colors
+local C = {
+    green  = "\27[32m",
+    red    = "\27[31m",
+    yellow = "\27[33m",
+    cyan   = "\27[36m",
+    dim    = "\27[2m",
+    reset  = "\27[0m",
+}
+
+-- Human label + color for a status (used by the monitor table).
+local STATUS_UI = {
+    ingame   = { "Running",  C.green },
+    stuck    = { "Stuck",    C.red },
+    freeze   = { "Stuck",    C.red },
+    recovery = { "Recovery", C.yellow },
+    starting = { "Starting", C.cyan },
+    offline  = { "Offline",  C.dim },
+}
+
+-- Best-effort memory + storage readout, cached to avoid shell cost every cycle.
+local sysCache = { memAt = 0, memLine = nil, diskAt = 0, diskLine = nil }
+local SYS_CACHE_TTL = 30
+
+-- Read MemTotal/MemAvailable from /proc/meminfo (kB) via shell.
+-- Returns a content line like "58% (860MB Free)" or nil on failure.
+local function memoryLine()
+    local now = os.time()
+    if sysCache.memAt == 0 or (now - sysCache.memAt) >= SYS_CACHE_TTL then
+        sysCache.memAt = now
+        sysCache.memLine = nil
+        local ok, out = Shell.exec("cat /proc/meminfo")
+        if ok and out and out ~= "(dry-run)" then
+            local total, avail
+            for line in out:gmatch("[^\r\n]+") do
+                if not total then
+                    total = tonumber(line:match("MemTotal:%s*(%d+)"))
+                end
+                if not avail then
+                    avail = tonumber(line:match("MemAvailable:%s*(%d+)"))
+                end
+            end
+            if total and total > 0 then
+                local used = avail and (total - avail) or 0
+                local pct = math.floor(used / total * 100 + 0.5)
+                local freeMb = avail and math.floor(avail / 1024) or 0
+                sysCache.memLine = string.format("%d%% (%dMB Free)", pct, freeMb)
+            end
+        end
+    end
+    return sysCache.memLine
 end
 
--- Print a compact, single-line status table (called each monitor cycle).
+-- Read free space from `df` (best-effort). Picks the storage mount if present
+-- (/sdcard, /emulated, or the root mount), else the first real block. Returns a
+-- line like "300GB Free" or nil on failure.
+local function storageLine()
+    local now = os.time()
+    if sysCache.diskAt == 0 or (now - sysCache.diskAt) >= SYS_CACHE_TTL then
+        sysCache.diskAt = now
+        sysCache.diskLine = nil
+        local ok, out = Shell.exec("df -h 2>/dev/null")
+        if ok and out and out ~= "(dry-run)" then
+            local fallbackAvail
+            for line in out:gmatch("[^\r\n]+") do
+                -- df -h columns: Filesystem Size Used Avail Use% Mounted on
+                local avail, mnt = line:match("%S+%s+%S+%s+%S+%s+(%S+)%s+%S+%%%s+(.+)")
+                if avail then
+                    local isWanted = mnt and (
+                        mnt:find("/sdcard", 1, true) or
+                        mnt:find("/emulated", 1, true) or
+                        mnt == "/"
+                    )
+                    if isWanted then
+                        sysCache.diskLine = avail .. " Free"
+                        break
+                    end
+                    if not fallbackAvail then fallbackAvail = avail end
+                end
+            end
+            if not sysCache.diskLine and fallbackAvail then
+                sysCache.diskLine = fallbackAvail .. " Free"
+            end
+        end
+    end
+    return sysCache.diskLine
+end
+
+-- Print a full-screen, colorized status table (clears the terminal each cycle).
 function Status.printSummary(instances)
-    print("\n--- Instance status ---")
+    -- Clear screen + move cursor to top, then the table replaces the old frame.
+    io.write("\27[2J\27[H")
+    io.flush()
+
+    local LCOL = 26   -- width of the left (Instance) column
+    local RCOL = 20   -- width of the right (Status/Value) column
+
+    local rule = "+" .. string.rep("-", LCOL) .. "+" .. string.rep("-", RCOL) .. "+"
+
+    -- A normal two-column row. rightText is plain (uncolored) so it can be aligned,
+    -- then the color is applied by the caller only to the visible text if desired.
+    local function row(left, right, rightColor)
+        local l = left
+        if #l > LCOL then l = l:sub(1, LCOL) end
+        local lp = LCOL - #l
+        if lp < 0 then lp = 0 end
+        local r = right
+        if #r > RCOL then r = r:sub(1, RCOL) end
+        local rp = RCOL - #r
+        if rp < 0 then rp = 0 end
+        local colored = (rightColor or "") .. r .. C.reset
+        return "| " .. l .. string.rep(" ", lp) .. " | " .. colored .. string.rep(" ", rp) .. " |"
+    end
+
+    local out = { rule }
+    table.insert(out, row("Instance", "Status"))
+    table.insert(out, rule)
+
     if not instances or #instances == 0 then
-        print("  (no instances configured)")
-        print("-----------------------")
-        return
+        table.insert(out, row("(no instances)", "--", C.dim))
+        table.insert(out, rule)
+    else
+        for _, inst in ipairs(instances) do
+            local id = inst.id or inst.name or "?"
+            local pkg = inst.package or inst.name or tostring(id)
+            local s = states[id]
+            local status = s and s.status or "offline"
+            local ui = STATUS_UI[status] or { status, C.dim }
+            table.insert(out, row(pkg, ui[1] or "Unknown", ui[2]))
+        end
+        table.insert(out, rule)
     end
-    local parts = {}
-    for _, inst in ipairs(instances) do
-        local id = inst.id or inst.name or "?"
-        local s = states[id]
-        local status = s and s.status or "unknown"
-        table.insert(parts, tostring(id) .. "=" .. shortLabel(status))
-    end
-    print("  " .. table.concat(parts, "  "))
-    print("-----------------------")
+
+    -- Memory / Storage footer (value right-aligned).
+    table.insert(out, row("Memory Usage", memoryLine() or "--"))
+    table.insert(out, row("Storage Available", storageLine() or "--"))
+    table.insert(out, rule)
+
+    print(table.concat(out, "\n"))
+    print(C.dim .. "(tekan Ctrl+C untuk berhenti)" .. C.reset)
 end
 
 return Status

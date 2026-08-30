@@ -4,10 +4,32 @@ local Status = require("managers.status")
 
 local Monitor = {}
 local running = false
+local interrupted = false
 local interval = 5
 local instanceManager = nil
 local recoveryManager = nil
 local apkManager = nil
+
+-- Install a SIGINT handler via lua-posix so Ctrl+C actually stops monitoring on
+-- Termux. Without a handler, `os.execute("sleep")` inside Timer.sleep swallows the
+-- signal (POSIX system() blocks SIGINT), so Ctrl+C does nothing while monitoring.
+-- The handler just flips flags; the sleep loop checks them each 0.25s and exits.
+local function installSignalHandler()
+    local ok, posix = pcall(require, "posix.signal")
+    if not ok or not posix then
+        Logger.warn("Monitor: lua-posix not found; Ctrl+C won't stop the monitor. Install with: pkg install lua-posix")
+        return false
+    end
+    local sigint = posix.SIGINT or 2
+    pcall(function()
+        posix.signal(sigint, function()
+            running = false
+            interrupted = true
+        end)
+    end)
+    Logger.info("Monitor: SIGINT handler installed (Ctrl+C will stop monitoring)")
+    return true
+end
 
 -- track instances currently undergoing recovery to avoid duplicate recoveries
 local recovering = {}
@@ -34,7 +56,9 @@ function Monitor.start(conf)
     end
 
     running = true
+    interrupted = false
     Status.reset()
+    installSignalHandler()
     Logger.info("Monitor: starting (interval=" .. tostring(interval) .. ")")
 
     while running do
@@ -108,7 +132,7 @@ function Monitor.start(conf)
         -- Print the per-instance status table for the user to see.
         Status.printSummary(instances)
 
-        Timer.sleep(interval)
+        Timer.sleepInterruptible(interval, function() return not running end)
     end
 
     return true
@@ -117,6 +141,10 @@ end
 function Monitor.stop()
     running = false
     Logger.info("Monitor: stopped")
+end
+
+function Monitor.interrupted()
+    return interrupted
 end
 
 return Monitor

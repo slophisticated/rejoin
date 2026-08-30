@@ -145,6 +145,17 @@ Initial Project
 - `managers/recovery.lua`: `openGameLink` is now **self-contained** — it extracts the place id and builds `roblox://placeId=<id>` directly (no longer depends on `utils/roblox_link` syncing to the device). Handles `https://www.roblox.com/games/<id>/...`, `?placeId=<id>`, `roblox://placeId=<id>`, `roblox://experiences/<id>`. Private-server `/share` links stay untouched. Removed the unused `RobloxLink` require. This guarantees the tool sends the proven auto-join form regardless of other files.
 - Prior fix (v0.4.3) already force-stops the clone (cold start) before sending the link.
 
+## v0.4.5 — colored live-status dashboard + Ctrl+C actually stops monitoring
+
+- `managers/status.lua`: `printSummary` now clears the terminal (`\27[2J\27[H`) each cycle and renders a full multi-row, colorized table instead of stacking plain lines:
+  - left column = package clone (`com.apengjers.v3`), right column = status label + color (Running=green, Stuck=red, Recovery=yellow, Starting=cyan, Offline=dim).
+  - footer rows show real **Memory Usage** (`/proc/meminfo`: % + free MB) and **Storage Available** (`df -h`), best-effort with a 30s cache to avoid shell cost every cycle.
+- `managers/monitor.lua`: installs a **SIGINT handler via lua-posix** so Ctrl+C truly stops monitoring on Termux. Root cause fixed: `os.execute("sleep")` swallows SIGINT (POSIX `system()` blocks it), so without a handler Ctrl+C did nothing; the handler flips `running = false`.
+- `utils/timer.lua`: new `Timer.sleepInterruptible(seconds, isStopped)` sleeps in 0.25s steps, so once the SIGINT handler fires the monitor exits within ~0.25s instead of waiting out the whole interval. Monitor loop now uses it.
+- `main.lua`: after the monitor stops, if `Monitor.interrupted()` is true (Ctrl+C pressed) the program exits cleanly (`os.exit(0)`) instead of returning to the menu.
+- **Requires** `pkg install lua-posix` on Termux for Ctrl+C to work.
+- Cleanup: removed now-unused `utils/roblox_link.lua`, `debug_normalize.lua`, and `debugging.txt`; updated `README.md` and `docs/roadmap.md` references.
+
 ## Upcoming
 
 - Shell Wrapper

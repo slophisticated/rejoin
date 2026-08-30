@@ -122,6 +122,10 @@ while true do
             print("Starting monitor...")
             local Monitor = require("managers.monitor")
             Monitor.start(Config.get())
+            if Monitor.interrupted() then
+                print("Monitor stopped by Ctrl+C; exiting.")
+                os.exit(0)
+            end
             break
         end
     elseif choice == "2" then
@@ -137,6 +141,10 @@ while true do
         local Monitor = require("managers.monitor")
         print("(tekan Ctrl+C untuk berhenti monitor)")
         Monitor.start(Config.get())
+        if Monitor.interrupted() then
+            print("Monitor stopped by Ctrl+C; exiting.")
+            os.exit(0)
+        end
     elseif choice == "6" then
         print("Exiting main")
         break
