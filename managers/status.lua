@@ -14,13 +14,13 @@ local Status = {}
 local states = {}
 
 -- Defaults / config gate for freeze detection.
-local freezeTimeout = 300   -- seconds
-local gracePeriod = 30      -- seconds after healthy before judging ingame vs stuck
+local freezeTimeout = 60   -- seconds (RSS-low/proc-stub or ANR -> wait, then relaunch)
+local gracePeriod = 30     -- seconds after healthy before judging ingame vs stuck
 local anrEnabled = true
 
 function Status.configure(conf)
     conf = conf or {}
-    freezeTimeout = tonumber(conf.freezeTimeout) or 300
+    freezeTimeout = tonumber(conf.freezeTimeout) or 60
     gracePeriod = tonumber(conf.gracePeriod) or 30
     anrEnabled = conf.anrCheckEnabled ~= false -- default true
 end
@@ -41,6 +41,26 @@ function Status.endRecovery(id)
     local s = states[id]
     if s and s.status == "recovery" then
         s.status = nil
+        -- A successful recovery means the app is genuinely running again; skip the
+        -- "starting" grace period so it shows Running immediately on the next check.
+        s.forceRunning = true
+    end
+end
+
+-- Force-hold an instance in "starting" while it is being launched/loaded (used by the
+-- Menu 1 sequential launch flow). Cleared with Status.endStarting when it is up.
+function Status.beginStarting(id)
+    local s = states[id] or {}
+    s.startingOverride = true
+    s.status = "starting"
+    s.stuckSince = nil
+    states[id] = s
+end
+
+function Status.endStarting(id)
+    local s = states[id]
+    if s then
+        s.startingOverride = nil
     end
 end
 
@@ -92,34 +112,56 @@ function Status.check(instance)
     local s = states[id] or {}
     states[id] = s
 
-    -- If currently being recovered or reset, keep that status until it finishes.
-    if s.status == "recovery" or s.status == "resetting" then
+    -- If currently being recovered, reset, or held in a forced "starting" state, keep
+    -- that status until it finishes (don't let the normal classifier override it).
+    if s.status == "recovery" or s.status == "resetting" or s.startingOverride then
         return s.status
     end
 
-    local running = false
+    local procExists = false
+    local active = false
     if pkg then
         -- Health is decided from the RSS threshold (isActive): a force-close leaves a
-        -- low-RSS stub alive, so isRunning alone would keep this "ingame" forever. A
-        -- real running clone has ~235 MB while a force-close stub is only ~7 MB.
-        local ok, res = pcall(function() return APK.isActive(pkg) end)
-        running = ok and res
+        -- low-RSS stub process alive (~7 MB vs ~235 MB for a running clone), so a process
+        -- that exists but stays below the threshold means its UI is gone.
+        local okP, resP = pcall(function() return APK.isRunning(pkg) end)
+        procExists = okP and resP
+        local okA, resA = pcall(function() return APK.isActive(pkg) end)
+        active = okA and resA
     end
+    local rssKb = pkg and APK.getRSSinKB(pkg) or -1
+    s.rssKb = rssKb
 
-    -- Freeze detection: ANR present for this package in recent logcat.
-    local anr = scanAnrPackages()
-    local frozen = anr[pkg] == true
-
-    if not running then
+    if not procExists then
         -- offline: nothing running
         s.status = "offline"
         s.healthySince = nil
         s.stuckSince = nil
         s.anrSeen = nil
+        s.forceRunning = nil
         return s.status
     end
 
-    -- Process is running.
+    if not active then
+        -- Process alive but RSS below the threshold (force-close stub): the clone is
+        -- effectively not running any real UI. Show Freeze; after freezeTimeout the
+        -- monitor force-stops and relaunches it.
+        s.status = "freeze"
+        if not s.stuckSince then s.stuckSince = now end
+        s.healthySince = nil
+        return s.status
+    end
+
+    -- Process is genuinely active (real memory).
+    if s.forceRunning then
+        -- Recovery/relaunch just succeeded: go straight to Running.
+        s.forceRunning = nil
+        s.healthySince = nil
+        s.status = "ingame"
+        s.stuckSince = nil
+        return s.status
+    end
+
     if not s.healthySince then
         s.healthySince = now
         s.status = "starting"
@@ -129,6 +171,9 @@ function Status.check(instance)
 
     local healthyAge = now - s.healthySince
 
+    -- Freeze detection: ANR present for this package in recent logcat.
+    local anr = scanAnrPackages()
+    local frozen = anr[pkg] == true
     if frozen then
         s.status = "freeze"
         if not s.stuckSince then s.stuckSince = now end
@@ -173,7 +218,7 @@ local C = {
 local STATUS_UI = {
     ingame   = { "Running",  C.green },
     stuck    = { "Stuck",    C.red },
-    freeze   = { "Stuck",    C.red },
+    freeze   = { "Freeze",   C.yellow },
     recovery = { "Recovery", C.yellow },
     resetting= { "Resetting", C.yellow },
     starting = { "Starting", C.blue },
@@ -318,7 +363,11 @@ function Status.printSummary(instances)
             local status = s and s.status or "offline"
             local ui = STATUS_UI[status] or { status, C.dim }
             local label = ui[1] or "Unknown"
-            table.insert(sb, bodyRow(pkg, label, ui[2]))
+            -- Show per-instance memory so it's obvious which clone has dropped to a
+            -- low-RSS stub (Freeze) vs which is genuinely running (Running · 235MB).
+            local rssKb = s and s.rssKb
+            local rssTxt = (rssKb and rssKb > 0) and (math.floor(rssKb / 1024) .. "MB") or "-"
+            table.insert(sb, bodyRow(pkg, label .. " · " .. rssTxt, ui[2]))
         end
         table.insert(sb, mid)
     end

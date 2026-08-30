@@ -61,31 +61,37 @@ function ProbeLog.scan(instances, statuses)
     for i, inst in ipairs(instances) do
         local pkg = inst.package
         if pkg and pkg ~= "" then
-            local name = tostring(inst.name or (inst.id or i))
-            local st = statuses and statuses[(inst.id or i)]
+            local okRow, errRow = pcall(function()
+                local name = tostring(inst.name or (inst.id or i))
+                local st = statuses and statuses[(inst.id or i)]
 
-            local okRun, running = pcall(function() return APK.isRunning(pkg) end)
-            local okAct, active = pcall(function() return APK.isActive(pkg) end)
-            local pidOut = ""
-            local okPid, pidRes = pcall(function() return Shell.exec("pidof " .. pkg) end)
-            if okPid and pidRes and pidRes ~= "" and pidRes ~= "(dry-run)" then
-                pidOut = trim(pidRes)
+                local okRun, running = pcall(function() return APK.isRunning(pkg) end)
+                local okAct, active = pcall(function() return APK.isActive(pkg) end)
+                local pidOut = ""
+                local okPid, pidRes = pcall(function() return Shell.exec("pidof " .. pkg) end)
+                if okPid and pidRes and pidRes ~= "" and pidRes ~= "(dry-run)" then
+                    pidOut = trim(pidRes)
+                end
+                local rss = APK.getRSSinKB(pkg)
+                if rss and rss < 0 then rss = "?" end
+
+                ProbeLog.line(string.format(
+                    "[%s] %s | pkg=%s | status=%s | running=%s | isActive=%s | pid=%s | rss=%s KB | thr=%d MB",
+                    os.date("%H:%M:%S"),
+                    name,
+                    pkg,
+                    tostring(st or "?"),
+                    tostring(okRun and running or "?"),
+                    tostring(okAct and active or "?"),
+                    (pidOut ~= "" and pidOut) or "-",
+                    tostring(rss),
+                    thrMb
+                ))
+            end)
+            if not okRow then
+                ProbeLog.line(string.format("[%s] scan_error [%s] %s",
+                    os.date("%H:%M:%S"), tostring(inst.id or i), tostring(errRow)))
             end
-            local rss = APK.getRSSinKB(pkg)
-            if rss and rss < 0 then rss = "?" end
-
-            ProbeLog.line(string.format(
-                "[%s] %s | pkg=%s | status=%s | running=%s | isActive=%s | pid=%s | rss=%s KB | thr=%d MB",
-                os.date("%H:%M:%S"),
-                name,
-                pkg,
-                tostring(st or "?"),
-                tostring(okRun and running or "?"),
-                tostring(okAct and active or "?"),
-                (pidOut ~= "" and pidOut) or "-",
-                tostring(rss),
-                thrMb
-            ))
         end
     end
 end

@@ -86,9 +86,6 @@ function Recovery.launchAndJoin(instance)
         return false
     end
 
-    local conf = Config.get() or {}
-    local instId = instance.id or instance.name or tostring(pkg)
-    Status.beginResetting(instId)
     Logger.debug("Recovery.launchAndJoin: launching " .. tostring(instance.name or pkg))
 
     local hasLink = instance.privateServer ~= nil and instance.privateServer ~= ""
@@ -106,13 +103,11 @@ function Recovery.launchAndJoin(instance)
         local ok, err = APK.launch(pkg)
         if not ok then
             Logger.error("Recovery.launchAndJoin: launch failed for " .. tostring(instance.name or pkg) .. ": " .. tostring(err))
-            Status.endResetting(instId)
             return false
         end
     end
 
     Logger.debug("Recovery.launchAndJoin: done for " .. tostring(instance.name or pkg))
-    Status.endResetting(instId)
     return true
 end
 
@@ -195,8 +190,6 @@ function Recovery.relaunch(instance)
     end
 
     Logger.debug("Recovery.relaunch: force-stopping and relaunching " .. tostring(instance.name or pkg))
-    local instId = instance.id or instance.name or tostring(pkg)
-    Status.beginResetting(instId)
 
     local ok_fs = APK.forceStop(pkg)
     if not ok_fs then
@@ -208,12 +201,10 @@ function Recovery.relaunch(instance)
     local ok, err = APK.launch(pkg)
     if not ok then
         Logger.error("Recovery.relaunch: launch failed for " .. tostring(instance.name or pkg) .. ": " .. tostring(err))
-        Status.endResetting(instId)
         return false
     end
 
     Logger.debug("Recovery.relaunch: relaunched " .. tostring(instance.name or pkg))
-    Status.endResetting(instId)
     return true
 end
 

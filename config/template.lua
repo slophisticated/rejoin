@@ -15,7 +15,7 @@ return {
     -- Optional fast filter for auto-detect clone scan (e.g. "com.apengjers."). Empty = disabled.
     clonePackagePrefix = "",
     -- Seconds an app may stay frozen/stuck before the monitor force-relaunches it.
-    freezeTimeout = 300,
+    freezeTimeout = 60,
     -- Seconds after launch that a running app is still considered "starting" before it
     -- is judged ingame vs stuck.
     gracePeriod = 30,
@@ -40,8 +40,9 @@ return {
     -- launchWaitTimeout:   how long (s) to wait before giving up on one clone and moving on.
     -- launchSettleDelay:   extra pause (s) after a clone is detected, before launching next.
     launchWaitInterval = 3,
-    -- Shortened so a failed detection never hangs "Launch All" for long.
-    launchWaitTimeout = 30,
+    -- How long (s) to wait for a clone to become ACTIVE (RSS >= minRss) during the
+    -- Menu 1 sequential launch (Starting -> Running) before moving on to the next one.
+    launchWaitTimeout = 60,
     launchSettleDelay = 5,
     -- Run shell commands as root (su -c). Required on a rooted device Android 11+ so that
     -- ps/pidof/pgrep can actually see the app processes the Monitor depends on; Termux run

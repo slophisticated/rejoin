@@ -44,12 +44,62 @@ local function setRecovering(id, val)
     if val then recovering[id] = true else recovering[id] = nil end
 end
 
-function Monitor.start(conf)
+-- Menu 1 flow: launch the clones ONE AT A TIME, showing the live dashboard the whole
+-- time. Each instance flips to Starting, gets force-stopped + joined, and only after
+-- it is really RUNNING (RSS >= threshold, i.e. isActive) do we move to the next one.
+-- Timeout per instance is conf.launchWaitTimeout (default 60s) before moving on.
+local function runSequentialLaunch(conf)
+    local instances = instanceManager.getAll()
+    local timeout = tonumber(conf and conf.launchWaitTimeout) or 60
+    for i, inst in ipairs(instances) do
+        if not running then break end
+        local id = inst.id or i
+        local name = tostring(inst.name or id)
+        local pkg = inst.package
+
+        Status.beginStarting(id)
+        Status.printSummary(instanceManager.getAll())
+        Logger.info(string.format("Monitor: launching #%d %s (%s)", i, name, tostring(pkg)))
+        ProbeLog.line(string.format("[%s] EVENT launch_begin #%d %s (%s)", os.date("%H:%M:%S"), i, name, tostring(pkg)))
+
+        local p_ok, l_ok = pcall(function() return recoveryManager.launchAndJoin(inst) end)
+        if not p_ok or not l_ok then
+            Logger.error(string.format("Monitor: launch failed for %s: %s", name, tostring(l_ok)))
+        end
+
+        local waited = 0
+        while running do
+            local activeNow = false
+            if pkg then
+                local okA, resA = pcall(function() return apkManager.isActive(pkg) end)
+                activeNow = okA and resA
+            end
+            if activeNow then break end
+            if waited >= timeout then
+                Logger.warn(string.format("Monitor: %s not active (RSS) within %ds; moving on", name, timeout))
+                ProbeLog.line(string.format("[%s] EVENT launch_timeout %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
+                break
+            end
+            Timer.sleepInterruptible(2, function() return not running end)
+            waited = waited + 2 -- bounded; sleepInterruptible may stop earlier on Ctrl+C
+            if running then Status.printSummary(instanceManager.getAll()) end
+        end
+
+        Status.endStarting(id)
+        ProbeLog.line(string.format("[%s] EVENT launch_done #%d %s (%s) waited=%ds", os.date("%H:%M:%S"), i, name, tostring(pkg), waited))
+        if running then
+            Status.printSummary(instanceManager.getAll())
+        end
+    end
+end
+
+function Monitor.start(conf, opts)
     interval = conf and conf.monitorInterval or interval
     instanceManager = require("managers.instance")
     recoveryManager = require("managers.recovery")
     apkManager = require("managers.apk")
     Status.configure(conf)
+    opts = opts or {}
 
     if running then
         Logger.warn("Monitor already running")
@@ -69,6 +119,14 @@ function Monitor.start(conf)
     -- Clear the screen so leftover menu/launch text doesn't sit above the dashboard.
     io.write("\27[2J\27[H")
     Logger.info("Monitor: starting (interval=" .. tostring(interval) .. ")")
+
+    -- Menu 1 passes autoLaunch=true: launch clones one at a time with the live
+    -- dashboard (Starting -> Running) before the monitoring loop takes over.
+    if opts.autoLaunch then
+        runSequentialLaunch(conf)
+        -- one full refresh so the "starting" override is cleared and statuses settle
+        if running then Status.printSummary(instanceManager.getAll()) end
+    end
 
     while running do
         local instances = instanceManager.getAll()

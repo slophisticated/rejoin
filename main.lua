@@ -91,29 +91,14 @@ while true do
     local choice = prompt("Choose: ") or ""
     choice = choice:match("^%s*(.-)%s*$")
     if choice == "1" then
-        local Recovery = require("managers.recovery")
         local list = InstanceManager.getAll()
         if #list == 0 then
             print("No instances configured.")
         else
-            Logger.setConsoleVisible(false)
-            local APK = require("managers.apk")
-            local packages = {}
-            for _, inst in ipairs(list) do
-                if inst.package then table.insert(packages, inst.package) end
-            end
-            local baseline = APK.countRunning(packages)
-            for i, inst in ipairs(list) do
-                local ok = Recovery.launchAndJoin(inst)
-                if not ok then
-                    Logger.debug(string.format("launch failed for id=%s", tostring(inst.id)))
-                else
-                    Recovery.waitUntilRunning(inst, { targetCount = baseline + i, instances = list })
-                end
-            end
+            -- Launch clones one at a time (Starting -> Running) inside the live monitor
+            -- dashboard; the monitor then watches/recovers them.
             local Monitor = require("managers.monitor")
-            Monitor.start(Config.get())
-            Logger.setConsoleVisible(true)
+            Monitor.start(Config.get(), { autoLaunch = true })
             if Monitor.interrupted() then
                 print("Monitor stopped by Ctrl+C; exiting.")
                 os.exit(0)
