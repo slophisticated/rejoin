@@ -229,37 +229,37 @@ end
 
 -- Print a full-screen, colorized status table (clears the terminal each cycle).
 function Status.printSummary(instances)
-    -- Clear screen + move cursor to top, then the table replaces the old frame.
-    io.write("\27[2J\27[H")
-    io.flush()
+    local LCOL = 24   -- width of the left (Instance) column
+    local RCOL = 18   -- width of the right (Status/Value) column
 
-    local LCOL = 26   -- width of the left (Instance) column
-    local RCOL = 20   -- width of the right (Status/Value) column
-
-    local rule = "+" .. string.rep("-", LCOL) .. "+" .. string.rep("-", RCOL) .. "+"
-
-    -- A normal two-column row. rightText is plain (uncolored) so it can be aligned,
-    -- then the color is applied by the caller only to the visible text if desired.
-    local function row(left, right, rightColor)
-        local l = left
-        if #l > LCOL then l = l:sub(1, LCOL) end
-        local lp = LCOL - #l
-        if lp < 0 then lp = 0 end
-        local r = right
-        if #r > RCOL then r = r:sub(1, RCOL) end
-        local rp = RCOL - #r
-        if rp < 0 then rp = 0 end
-        local colored = (rightColor or "") .. r .. C.reset
-        return "| " .. l .. string.rep(" ", lp) .. " | " .. colored .. string.rep(" ", rp) .. " |"
+    -- Build one body row. `rightText` is plain so padding is based on visible chars;
+    -- the color is applied around the visible text only, so all rows align equally.
+    local function bodyRow(left, rightText, rightColor)
+        if #left > LCOL then left = left:sub(1, LCOL) end
+        if #rightText > RCOL then rightText = rightText:sub(1, RCOL) end
+        local r = rightText
+        if rightColor then
+            r = rightColor .. rightText .. C.reset
+        end
+        return "| " .. left .. string.rep(" ", LCOL - #left)
+            .. " | " .. r .. string.rep(" ", RCOL - #rightText) .. " |"
     end
 
-    local out = { rule }
-    table.insert(out, row("Instance", "Status"))
-    table.insert(out, rule)
+    -- One row is LCOL + RCOL + 7 chars; build the border from the same width so the
+    -- vertical separators line up exactly (previously border was 4 short -> misaligned).
+    local bodyWidth = LCOL + RCOL + 7
+    local border = "+" .. string.rep("-", bodyWidth - 2) .. "+"
+
+    -- Assemble the whole frame into a single string so we can clear + write at once,
+    -- avoiding the cursor-home artifact that scattered borders across the middle of rows.
+    local sb = {}
+    table.insert(sb, border)
+    table.insert(sb, bodyRow("Instance", "Status"))
+    table.insert(sb, border)
 
     if not instances or #instances == 0 then
-        table.insert(out, row("(no instances)", "--", C.dim))
-        table.insert(out, rule)
+        table.insert(sb, bodyRow("(no instances)", "--", C.dim))
+        table.insert(sb, border)
     else
         for _, inst in ipairs(instances) do
             local id = inst.id or inst.name or "?"
@@ -267,18 +267,19 @@ function Status.printSummary(instances)
             local s = states[id]
             local status = s and s.status or "offline"
             local ui = STATUS_UI[status] or { status, C.dim }
-            table.insert(out, row(pkg, ui[1] or "Unknown", ui[2]))
+            table.insert(sb, bodyRow(pkg, ui[1] or "Unknown", ui[2]))
         end
-        table.insert(out, rule)
+        table.insert(sb, border)
     end
 
-    -- Memory / Storage footer (value right-aligned).
-    table.insert(out, row("Memory Usage", memoryLine() or "--"))
-    table.insert(out, row("Storage Available", storageLine() or "--"))
-    table.insert(out, rule)
+    table.insert(sb, bodyRow("Memory Usage", memoryLine() or "--"))
+    table.insert(sb, bodyRow("Storage Available", storageLine() or "--"))
+    table.insert(sb, border)
 
-    print(table.concat(out, "\n"))
-    print(C.dim .. "(tekan Ctrl+C untuk berhenti)" .. C.reset)
+    -- Clear + write the frame in one shot, then a dim footer line.
+    io.write("\27[2J\27[H" .. table.concat(sb, "\n") .. "\n")
+    io.write(C.dim .. "(tekan Ctrl+C untuk berhenti)" .. C.reset .. "\n")
+    io.flush()
 end
 
 return Status

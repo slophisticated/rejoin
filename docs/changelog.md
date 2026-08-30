@@ -156,6 +156,14 @@ Initial Project
 - **Requires** `pkg install lua-posix` on Termux for Ctrl+C to work.
 - Cleanup: removed now-unused `utils/roblox_link.lua`, `debug_normalize.lua`, and `debugging.txt`; updated `README.md` and `docs/roadmap.md` references.
 
+## v0.4.6 — fix misaligned monitor table
+
+- `managers/status.lua`: fixed the status-table layout that rendered with borders "straying" into the middle of rows on Termux:
+  - **Border width now equals body width** (they were out by 4 chars, so the `+`/`|` separators never lined up). The border is generated from the same width as a data row.
+  - The frame is built as **one single string** and cleared+written in a single `io.write("\27[2J\27[H" .. frame)` + flush, instead of clearing in a separate `io.write` — the earlier cursor-home (`\27[H`) wrote into the middle of later printed rows.
+  - `\27[0m` reset is only emitted on colored status cells (no stray escapes on the header/footer rows).
+  - Column widths tuned (Instance 24 / Status 18) so values like `com.apengjers.v3`, `38% (2466MB Free)`, and `75G Free` fit without overflow.
+
 ## Upcoming
 
 - Shell Wrapper
