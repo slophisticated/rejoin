@@ -227,7 +227,20 @@ local function storageLine()
     return sysCache.diskLine
 end
 
--- Print a full-screen, colorized status table (clears the terminal each cycle).
+-- Height (in terminal rows) of the dashboard frame drawn by the last printSummary
+-- call, plus the footer hint row. Used to reposition with cursor-up on the next
+-- refresh instead of clearing the whole screen (avoids flicker).
+local frameHeight = 0
+
+-- Reset dashboard positioning state (called when a new monitor session starts).
+function Status.resetDashboard()
+    frameHeight = 0
+end
+
+-- Print a colorized status table. The first call draws the frame from the cursor
+-- position and records its height; later calls move the cursor up and redraw over the
+-- same rows (no full-screen clear), then clear any leftover below. Rows use CRLF so
+-- the cursor returns to column 0 each line on Termux (LF alone drifts rows rightward).
 function Status.printSummary(instances)
     local LCOL = 24   -- width of the left (Instance) column
     local RCOL = 18   -- width of the right (Status/Value) column
@@ -276,9 +289,16 @@ function Status.printSummary(instances)
     table.insert(sb, bodyRow("Storage Available", storageLine() or "--"))
     table.insert(sb, border)
 
-    -- Clear + write the frame in one shot, then a dim footer line.
-    io.write("\27[2J\27[H" .. table.concat(sb, "\n") .. "\n")
-    io.write(C.dim .. "(tekan Ctrl+C untuk berhenti)" .. C.reset .. "\n")
+    -- Reposition on top of the previous frame if we already drew one, then redraw.
+    if frameHeight > 0 then
+        io.write("\27[" .. frameHeight .. "A")
+    end
+    io.write("\27[?25l")                                  -- hide cursor (smoother refresh)
+    io.write(table.concat(sb, "\r\n") .. "\r\n")          -- CRLF so every row resets column
+    io.write(C.dim .. "(tekan Ctrl+C untuk berhenti)" .. C.reset .. "\r\n")
+    io.write("\27[J")                                     -- clear any leftover below
+    frameHeight = #sb + 1                                 -- frame rows + footer hint
+    io.write("\27[?25h")                                  -- show cursor again
     io.flush()
 end
 

@@ -164,6 +164,17 @@ Initial Project
   - `\27[0m` reset is only emitted on colored status cells (no stray escapes on the header/footer rows).
   - Column widths tuned (Instance 24 / Status 18) so values like `com.apengjers.v3`, `38% (2466MB Free)`, and `75G Free` fit without overflow.
 
+## v0.4.7 — flicker-free in-place dashboard + clean console
+
+- `managers/status.lua`: `printSummary` now redraws **in place** instead of full-screen clearing every cycle:
+  - Tracks the drawn frame height and moves the cursor back up (`\27[<n>A`) each refresh, then redraws and clears any leftover below (`\27[J`) — no more screen flicker.
+  - Rows are joined with **`\r\n` (CRLF)** instead of `\n` — fixes rows drifting rightward on Termux (LF alone doesn't reset the column to 0 when ONLCR is off), which was the root cause of the "stray border" mess visible both on screen and in copy/paste.
+  - Hides/shows the cursor around each draw (`\27[?25l`/`\27[?25h`) for a smooth refresh.
+  - New `Status.resetDashboard()` resets the frame position at the start of each monitor session.
+- `core/logger.lua`: added `Logger.setConsoleVisible(bool)`. When `false`, log lines are written to the file only (not the console), so monitor event logs don't push the dashboard around.
+- `managers/monitor.lua`: hides console logging while monitoring (`Logger.setConsoleVisible(false)` + `Status.resetDashboard()`), and restores it plus the cursor (`\27[?25h\r\n`) when the monitor stops.
+- Net effect: monitoring shows only a clean, non-flickering status dashboard; full logs still go to `data/rejoin.log`; Ctrl+C stops and returns to a normal console.
+
 ## Upcoming
 
 - Shell Wrapper

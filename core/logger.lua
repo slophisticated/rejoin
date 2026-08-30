@@ -46,6 +46,11 @@ end
 
 local logLevel = loadLogLevelFromConfig() or "INFO"
 
+-- When false, log lines are written to the file only (not the console). Used while a
+-- full-screen monitor dashboard is being drawn, so stray log lines don't push the
+-- dashboard around. Defaults to true (normal behavior outside monitoring).
+local consoleVisible = true
+
 local levelsOrder = {
     DEBUG = 1,
     INFO = 2,
@@ -95,7 +100,11 @@ local function log(level, message)
         return
     end
     local line = string.format("[%s] [%s] %s", getTime(), level, tostring(message))
-    print(line)
+    -- Always write to the file; only echo to the console when it's not hidden behind a
+    -- full-screen dashboard (consoleVisible == false while monitoring).
+    if consoleVisible then
+        print(line)
+    end
     pcall(function() appendLogToFile(line) end)
 end
 
@@ -134,6 +143,10 @@ function Logger.setLogPath(path)
     if path and type(path) == "string" and path ~= "" then
         logFilePath = path
     end
+end
+
+function Logger.setConsoleVisible(visible)
+    consoleVisible = visible == true
 end
 
 return Logger

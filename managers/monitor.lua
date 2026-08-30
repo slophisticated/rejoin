@@ -58,7 +58,11 @@ function Monitor.start(conf)
     running = true
     interrupted = false
     Status.reset()
+    Status.resetDashboard()
     installSignalHandler()
+    -- Full-screen dashboard: hide console log lines while monitoring so they don't push
+    -- the dashboard around (log lines still go to the log file).
+    Logger.setConsoleVisible(false)
     Logger.info("Monitor: starting (interval=" .. tostring(interval) .. ")")
 
     while running do
@@ -135,6 +139,10 @@ function Monitor.start(conf)
         Timer.sleepInterruptible(interval, function() return not running end)
     end
 
+    -- Monitor stopped: restore console output and cursor, then leave a clean line.
+    Logger.setConsoleVisible(true)
+    io.write("\27[?25h\r\n")
+    io.flush()
     return true
 end
 
