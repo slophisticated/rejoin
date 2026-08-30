@@ -17,10 +17,15 @@ end
 local function isHealthy(instance)
     local pkg = instance and instance.package
     if not pkg then return false end
-    -- Check process running
-    local running = APK.isRunning(pkg)
-    if running then return true end
-    return false
+    -- A force-close leaves a stub process alive, so process existence can't prove the
+    -- app actually came back up. Health = a visible window (dumpsys), falling back to
+    -- the process state only when dumpsys is unavailable.
+    local ok, vis = pcall(function() return APK.hasVisibleWindow(pkg) end)
+    if ok and vis ~= nil then
+        return vis
+    end
+    local ok2, run = pcall(function() return APK.isRunning(pkg) end)
+    return ok2 and run
 end
 
 -- Build the proven auto-join deep link (roblox://placeId=<id>) for any public-style

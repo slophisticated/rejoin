@@ -201,6 +201,15 @@ Initial Project
   - Status cells no longer append the color name (`Resetting (Yellow)` → **`Resetting`**), still colorized by status.
   - Removed the legend block (`* ... = ...`) — the Ctrl+C footer hint is kept.
 
+## v0.5.0 — window-visibility health (force-close detected & reopened)
+
+- Root cause: force-closing a floating-window clone leaves a stub process alive, so process-based detection (`isRunning`) reported it as running forever and never recovered it.
+- `managers/apk.lua`: new `APK.hasVisibleWindow(pkg)` that scrapes `dumpsys window windows` (cached 3s) and returns whether the package still owns an on-screen window (`nil` = dumpsys unavailable).
+- `managers/monitor.lua`: health (does the clone need recovery) is now decided from window visibility first, falling back to `isRunning` only when `dumpsys` is unavailable.
+- `managers/recovery.lua`: post-launch success check now waits for a visible window too, so recovery only completes once the app is actually on screen.
+- `managers/status.lua`: dashboard "running/ingame/offline" classification follows window visibility so a force-closed clone shows `offline` instead of a stale `ingame`.
+- New diagnostic tool `debug_probe.lua` (run `lua debug_probe.lua`) printing per-clone `pidof`/`ps` RSS/state plus `dumpsys activity`/`window` hits for comparing an active clone vs a force-closed one.
+
 ## Upcoming
 
 - Shell Wrapper

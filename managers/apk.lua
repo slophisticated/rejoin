@@ -143,7 +143,65 @@ function APKManager.isRunning(packageName)
     return false
 end
 
--- Count how many processes for `name` are currently running.
+-- ---------------------------------------------------------------------------
+-- Window-visibility detection.
+--
+-- For floating-window clones, "closing" the floating window does NOT kill the
+-- underlying process — a small stub process (and often the main process) can stay
+-- alive, so `isRunning` returns true forever and the closed app is never recovered.
+-- The reliable signal for "this clone's UI is actually on screen" is whether the
+-- package still owns a visible window in `dumpsys window windows`.
+--
+-- We scrape `dumpsys window windows` once per TTL and remember which packages own a
+-- visible window. hasVisibleWindow(pkg) returns:
+--   * true   when the package owns a visible window
+--   * false  when dumpsys ran successfully but the package has NO visible window
+--   * nil    when dumpsys was unavailable/empty (so callers can fall back)
+-- ---------------------------------------------------------------------------
+
+local windowCacheAt = 0
+local windowVisiblePkgs = nil
+local WIN_TTL = 3
+
+local function refreshWindowCache()
+    local ok, out = Shell.exec("dumpsys window windows")
+    local pkgs = {}
+    local parsed = false
+    if ok and out and out ~= "(dry-run)" then
+        parsed = true
+        for line in out:gmatch("[^\r\n]+") do
+            local w = line:match("Window%{%s*[%w%x]+ u0 ([%w%.]+)")
+            if not w then
+                w = line:match("Window%{%s*[%w%x]+ (%S+)/")
+            end
+            if w then
+                local p = w:match("^([%w%.]+)")
+                if p and p ~= "" then pkgs[p] = true end
+            end
+        end
+    end
+    windowVisiblePkgs = pkgs
+    if not parsed then
+        -- if dumpsys didn't give us anything, report "unavailable" next call
+        windowVisiblePkgs = nil
+    end
+end
+
+function APKManager.hasVisibleWindow(packageName)
+    if not packageName or packageName == "" then return nil end
+    local pkg = packageName:gsub("['\" ]", "")
+    if pkg == "" then return nil end
+    local now = os.time()
+    if windowCacheAt == 0 or (now - windowCacheAt) >= WIN_TTL then
+        windowCacheAt = now
+        refreshWindowCache()
+    end
+    if windowVisiblePkgs == nil then
+        return nil -- unavailable -> caller should fall back
+    end
+    return windowVisiblePkgs[pkg] == true
+end
+
 -- Used by "Launch All" to detect how many clones have actually come up: every Roblox
 -- clone runs a process named `com.roblox.client`, so waiting for the count to reach the
 -- number of clones launched gives a reliable per-launch progress signal even when the
