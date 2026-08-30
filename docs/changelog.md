@@ -223,6 +223,7 @@ Initial Project
 - New `managers/resize.lua`: auto-arrange the floating clones into a 2×2 grid (per `display.md` — Clone1 TL, Clone2 TR, Clone3 BL, Clone4 BR) by simulating the resize (bottom-right handle) + move (title-bar) drags via `input motionevent DOWN → MOVE… → UP`. JSON config `windowLayout` + per-instance `grid = {col,row}`.
 - Because `dumpsys` doesn't list these clones, all window geometry (`marginPx`, `cellGapPx`, `handleInsetPx`, `titleGrabInsetY`, `defaultRect`, drag step counts) is configurable for on-device calibration.
 - New diagnostic tool `debug_resize.lua` (`lua debug_resize.lua` / `--apply`) printing display size, per-clone grid cell, target rect and computed drag deltas before actually issuing gestures.
+- Fix: `Shell.exec` returns `(ok, output)`; any `pcall(function() return Shell.exec(...) end)` previously captured the boolean as the "output string", crashing on `debug_resize.lua` (`attempt to index a boolean value` at `resize.lua:29`) and would also have crashed `optimizer.lua`/`probe_log.lua` during Menu 1. All sites now capture the 3rd pcall value (`local ok, _, out = pcall(...)`).
 
 ## Upcoming
 

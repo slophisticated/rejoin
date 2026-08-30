@@ -38,7 +38,7 @@ end
 -- the process isn't running, so callers can skip a not-yet-up clone without error.
 local function getPids(pkg)
     if not pkg or pkg == "" then return "" end
-    local ok, out = pcall(function() return Shell.exec("pidof " .. pkg) end)
+    local ok, _, out = pcall(function() return Shell.exec("pidof " .. pkg) end)
     if not ok or not out then return "" end
     return (out:gsub("\n", " ")):gsub("%s+$", "")
 end
@@ -47,7 +47,7 @@ end
 local function applyToPid(pid, cfg)
     if not pid or pid == "" then return end
     local reniceCmd = string.format("renice %d -p %s", cfg.renice, pid)
-    local okR, outR = pcall(function() return Shell.exec(reniceCmd) end)
+    local okR, _, outR = pcall(function() return Shell.exec(reniceCmd) end)
     if not okR then
         Logger.debug("Optimizer: renice failed for pid " .. pid)
     elseif outR and outR ~= "(dry-run)" then

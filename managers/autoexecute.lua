@@ -10,14 +10,14 @@ local AutoExecute = {}
 local function trySuCopy(src, dest)
     -- Prefer direct cp if possible
     local cmd = string.format("cp '%s' '%s'", src, dest)
-    local ok, out = pcall(function() return Shell.exec(cmd) end)
-    if ok and out then
+    local ok = pcall(function() return Shell.exec(cmd) end)
+    if ok then
         return true
     end
     -- Try su wrapper
     local suCmd = string.format("su -c 'cp %s %s'", src, dest)
-    local ok2, out2 = pcall(function() return Shell.exec(suCmd) end)
-    if ok2 and out2 then
+    local ok2 = pcall(function() return Shell.exec(suCmd) end)
+    if ok2 then
         return true
     end
     return false

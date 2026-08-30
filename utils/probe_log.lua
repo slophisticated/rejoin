@@ -68,7 +68,7 @@ function ProbeLog.scan(instances, statuses)
                 local okRun, running = pcall(function() return APK.isRunning(pkg) end)
                 local okAct, active = pcall(function() return APK.isActive(pkg) end)
                 local pidOut = ""
-                local okPid, pidRes = pcall(function() return Shell.exec("pidof " .. pkg) end)
+                local okPid, _, pidRes = pcall(function() return Shell.exec("pidof " .. pkg) end)
                 if okPid and pidRes and pidRes ~= "" and pidRes ~= "(dry-run)" then
                     pidOut = trim(pidRes)
                 end

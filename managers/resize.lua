@@ -33,7 +33,7 @@ end
 
 -- Resolve the display size in pixels via `wm size`. Returns {w,h} or nil.
 function Resize.getDisplaySize()
-    local ok, out = pcall(function() return Shell.exec("wm size") end)
+    local ok, _, out = pcall(function() return Shell.exec("wm size") end)
     if not ok or not out or out == "(dry-run)" then
         Logger.warn("Resize: could not read display size")
         return nil
