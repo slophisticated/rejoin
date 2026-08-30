@@ -175,6 +175,20 @@ Initial Project
 - `managers/monitor.lua`: hides console logging while monitoring (`Logger.setConsoleVisible(false)` + `Status.resetDashboard()`), and restores it plus the cursor (`\27[?25h\r\n`) when the monitor stops.
 - Net effect: monitoring shows only a clean, non-flickering status dashboard; full logs still go to `data/rejoin.log`; Ctrl+C stops and returns to a normal console.
 
+## v0.4.8 — box-drawing dashboard + silent launch + "Resetting" status
+
+- `managers/status.lua`:
+  - Dashboard now uses **Unicode box-drawing** borders (`╭─┬─╮`, `├─┼─┤`, `╰─┴─╯`, `│`) instead of ASCII `+ - |`, matching `examplecli.txt`.
+  - Status cells render as **`Label (Color)`** (e.g. `Resetting (Yellow)`, `Running (Green)`), with the label colored by status.
+  - `Starting` now renders **blue** (was cyan); added a **color legend** under the table (Resetting/Recovery = Yellow, Stuck = Red, Starting = Blue, Running = Green) plus the Ctrl+C footer hint.
+- New internal status **`resetting`** (`STATUS_UI["resetting"] = Resetting, yellow`): `Status.beginResetting(id)` / `Status.endResetting(id)` mark an instance while it is being force-stopped / relaunched / joined, and `Status.check` holds it (like `recovery`) so the dashboard shows "Resetting (Yellow)" until the operation finishes.
+- `managers/recovery.lua`:
+  - `launchAndJoin` and `relaunch` now set/unset the `resetting` status around their work.
+  - Launch progress logs (`launchAndJoin`, `relaunch`, `waitUntilRunning`) downgraded from `Logger.info` to `Logger.debug` (kept in the log file, not shown on the console).
+- `main.lua`:
+  - Removed the startup debug prints (`monitorInterval`, `instance count`).
+  - Option `1) Launch All + Monitor` now hides console logging for the whole launch phase (`Logger.setConsoleVisible(false)`), strips all per-clone progress text, and goes **straight to the dashboard** once the (still sequential, still waiting) launch finishes.
+
 ## Upcoming
 
 - Shell Wrapper

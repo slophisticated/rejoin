@@ -44,6 +44,22 @@ function Status.endRecovery(id)
     end
 end
 
+-- Mark an instance as currently being reset (force-stopped / relaunched / joined), so the
+-- monitor shows "Resetting" until the operation finishes. Mirrors recovery handling.
+function Status.beginResetting(id)
+    local s = states[id] or {}
+    s.status = "resetting"
+    s.stuckSince = nil
+    states[id] = s
+end
+
+function Status.endResetting(id)
+    local s = states[id]
+    if s and s.status == "resetting" then
+        s.status = nil
+    end
+end
+
 -- Read ANR lines from logcat and return a set of package names that (recently) ANR'd.
 -- Best-effort: returns empty on failure/without logcat.
 local function scanAnrPackages()
@@ -76,8 +92,8 @@ function Status.check(instance)
     local s = states[id] or {}
     states[id] = s
 
-    -- If currently being recovered, keep that status.
-    if s.status == "recovery" then
+    -- If currently being recovered or reset, keep that status until it finishes.
+    if s.status == "recovery" or s.status == "resetting" then
         return s.status
     end
 
@@ -145,6 +161,7 @@ local C = {
     red    = "\27[31m",
     yellow = "\27[33m",
     cyan   = "\27[36m",
+    blue   = "\27[34m",
     dim    = "\27[2m",
     reset  = "\27[0m",
 }
@@ -155,7 +172,8 @@ local STATUS_UI = {
     stuck    = { "Stuck",    C.red },
     freeze   = { "Stuck",    C.red },
     recovery = { "Recovery", C.yellow },
-    starting = { "Starting", C.cyan },
+    resetting= { "Resetting", C.yellow },
+    starting = { "Starting", C.blue },
     offline  = { "Offline",  C.dim },
 }
 
@@ -241,38 +259,65 @@ end
 -- position and records its height; later calls move the cursor up and redraw over the
 -- same rows (no full-screen clear), then clear any leftover below. Rows use CRLF so
 -- the cursor returns to column 0 each line on Termux (LF alone drifts rows rightward).
-function Status.printSummary(instances)
-    local LCOL = 24   -- width of the left (Instance) column
-    local RCOL = 18   -- width of the right (Status/Value) column
+-- Color-name for each status, shown as "Label (Color)" to match the example dashboard.
+local STATUS_NAME = {
+    ingame    = "Green",
+    stuck     = "Red",
+    freeze    = "Red",
+    recovery  = "Yellow",
+    resetting = "Yellow",
+    starting  = "Blue",
+    offline   = "Gray",
+}
 
-    -- Build one body row. `rightText` is plain so padding is based on visible chars;
-    -- the color is applied around the visible text only, so all rows align equally.
+-- Pad a plain string into a column cell of `width` wrapping spaces. `text` has no
+-- ANSI codes so padding is based on visible characters; color is applied separately.
+local function padCell(text, width)
+    if #text > width - 2 then text = text:sub(1, width - 2) end
+    local pad = width - 2 - #text
+    local left = math.floor(pad / 2)
+    return " " .. string.rep(" ", left) .. text .. string.rep(" ", pad - left) .. " "
+end
+
+local function blankCell(width)
+    return string.rep(" ", width)
+end
+
+function Status.printSummary(instances)
+    local LCOL = 23   -- width of the left (Instance) column
+    local RCOL = 23   -- width of the right (Status/Value) column
+
+    local top  = "╭" .. string.rep("─", LCOL) .. "┬" .. string.rep("─", RCOL) .. "╮"
+    local mid  = "├" .. string.rep("─", LCOL) .. "┼" .. string.rep("─", RCOL) .. "┤"
+    local bot  = "╰" .. string.rep("─", LCOL) .. "┴" .. string.rep("─", RCOL) .. "╯"
+
+    -- One body row. `rightColor`, if given, colors the visible right text only so
+    -- every row still aligns on the same column.
     local function bodyRow(left, rightText, rightColor)
-        if #left > LCOL then left = left:sub(1, LCOL) end
-        if #rightText > RCOL then rightText = rightText:sub(1, RCOL) end
-        local r = rightText
+        local lc = padCell(left, LCOL)
+        local rc = padCell(rightText, RCOL)
         if rightColor then
-            r = rightColor .. rightText .. C.reset
+            local l = math.floor((RCOL - 2 - #rightText) / 2)
+            rc = " " .. string.rep(" ", l) .. rightColor .. rightText .. C.reset
+                 .. string.rep(" ", (RCOL - 2 - #rightText) - l) .. " "
         end
-        return "| " .. left .. string.rep(" ", LCOL - #left)
-            .. " | " .. r .. string.rep(" ", RCOL - #rightText) .. " |"
+        return "│" .. lc .. "│" .. rc .. "│"
     end
 
-    -- One row is LCOL + RCOL + 7 chars; build the border from the same width so the
-    -- vertical separators line up exactly (previously border was 4 short -> misaligned).
-    local bodyWidth = LCOL + RCOL + 7
-    local border = "+" .. string.rep("-", bodyWidth - 2) .. "+"
+    local function blankRow()
+        return "│" .. blankCell(LCOL) .. "│" .. blankCell(RCOL) .. "│"
+    end
 
-    -- Assemble the whole frame into a single string so we can clear + write at once,
-    -- avoiding the cursor-home artifact that scattered borders across the middle of rows.
     local sb = {}
-    table.insert(sb, border)
+    table.insert(sb, top)
+    table.insert(sb, blankRow())
     table.insert(sb, bodyRow("Instance", "Status"))
-    table.insert(sb, border)
+    table.insert(sb, blankRow())
+    table.insert(sb, mid)
 
     if not instances or #instances == 0 then
-        table.insert(sb, bodyRow("(no instances)", "--", C.dim))
-        table.insert(sb, border)
+        table.insert(sb, bodyRow("(no instances)", "Offline (Gray)", C.dim))
+        table.insert(sb, mid)
     else
         for _, inst in ipairs(instances) do
             local id = inst.id or inst.name or "?"
@@ -280,14 +325,24 @@ function Status.printSummary(instances)
             local s = states[id]
             local status = s and s.status or "offline"
             local ui = STATUS_UI[status] or { status, C.dim }
-            table.insert(sb, bodyRow(pkg, ui[1] or "Unknown", ui[2]))
+            local label = ui[1] or "Unknown"
+            local cname = STATUS_NAME[status] or "Gray"
+            table.insert(sb, bodyRow(pkg, label .. " (" .. cname .. ")", ui[2]))
         end
-        table.insert(sb, border)
+        table.insert(sb, mid)
     end
 
     table.insert(sb, bodyRow("Memory Usage", memoryLine() or "--"))
     table.insert(sb, bodyRow("Storage Available", storageLine() or "--"))
-    table.insert(sb, border)
+    table.insert(sb, bot)
+
+    -- Legend (color key) below the table.
+    table.insert(sb, " ")
+    table.insert(sb, C.yellow .. "* Resetting & Recovery" .. C.dim .. " = Yellow" .. C.reset)
+    table.insert(sb, C.red    .. "* Stuck"               .. C.dim .. " = Red"    .. C.reset)
+    table.insert(sb, C.blue   .. "* Starting"            .. C.dim .. " = Blue"   .. C.reset)
+    table.insert(sb, C.green  .. "* Running"             .. C.dim .. " = Green"  .. C.reset)
+    table.insert(sb, C.dim .. "(tekan Ctrl+C untuk berhenti)" .. C.reset)
 
     -- Reposition on top of the previous frame if we already drew one, then redraw.
     if frameHeight > 0 then
@@ -295,9 +350,8 @@ function Status.printSummary(instances)
     end
     io.write("\27[?25l")                                  -- hide cursor (smoother refresh)
     io.write(table.concat(sb, "\r\n") .. "\r\n")          -- CRLF so every row resets column
-    io.write(C.dim .. "(tekan Ctrl+C untuk berhenti)" .. C.reset .. "\r\n")
     io.write("\27[J")                                     -- clear any leftover below
-    frameHeight = #sb + 1                                 -- frame rows + footer hint
+    frameHeight = #sb                                     -- full frame incl. legend + footer
     io.write("\27[?25h")                                  -- show cursor again
     io.flush()
 end

@@ -4,6 +4,7 @@ local AutoExecute = require("managers.autoexecute")
 local UtilsAndroid = require("utils.android")
 local Timer = require("utils.timer")
 local Config = require("core.config")
+local Status = require("managers.status")
 
 local Recovery = {}
 
@@ -85,7 +86,9 @@ function Recovery.launchAndJoin(instance)
     end
 
     local conf = Config.get() or {}
-    Logger.info("Recovery.launchAndJoin: launching " .. tostring(instance.name or pkg))
+    local instId = instance.id or instance.name or tostring(pkg)
+    Status.beginResetting(instId)
+    Logger.debug("Recovery.launchAndJoin: launching " .. tostring(instance.name or pkg))
 
     local hasLink = instance.privateServer ~= nil and instance.privateServer ~= ""
 
@@ -102,11 +105,13 @@ function Recovery.launchAndJoin(instance)
         local ok, err = APK.launch(pkg)
         if not ok then
             Logger.error("Recovery.launchAndJoin: launch failed for " .. tostring(instance.name or pkg) .. ": " .. tostring(err))
+            Status.endResetting(instId)
             return false
         end
     end
 
-    Logger.info("Recovery.launchAndJoin: done for " .. tostring(instance.name or pkg))
+    Logger.debug("Recovery.launchAndJoin: done for " .. tostring(instance.name or pkg))
+    Status.endResetting(instId)
     return true
 end
 
@@ -147,9 +152,9 @@ function Recovery.waitUntilRunning(instance, opts)
 
     local name = tostring(instance.name or pkg)
     if target then
-        Logger.info(string.format("Recovery.waitUntilRunning: waiting for %d instance(s) to be running (timeout=%ss)", target, timeout))
+        Logger.debug(string.format("Recovery.waitUntilRunning: waiting for %d instance(s) to be running (timeout=%ss)", target, timeout))
     else
-        Logger.info("Recovery.waitUntilRunning: waiting for " .. name .. " to open (timeout=" .. tostring(timeout) .. "s)")
+        Logger.debug("Recovery.waitUntilRunning: waiting for " .. name .. " to open (timeout=" .. tostring(timeout) .. "s)")
     end
 
     local started = os.time()
@@ -159,14 +164,14 @@ function Recovery.waitUntilRunning(instance, opts)
             Logger.debug(string.format("Recovery.waitUntilRunning: running=%s target=%s", c, target))
             if c >= target then
                 local elapsed = os.time() - started
-                Logger.info(string.format("Recovery.waitUntilRunning: running=%s reached target %s after %ds; settling %ds", c, target, elapsed, settle))
+                Logger.debug(string.format("Recovery.waitUntilRunning: running=%s reached target %s after %ds; settling %ds", c, target, elapsed, settle))
                 Timer.sleep(settle)
                 return true
             end
         else
             if APK.isRunning(pkg) then
                 local elapsed = os.time() - started
-                Logger.info(string.format("Recovery.waitUntilRunning: %s opened after %ds; settling %ds", name, elapsed, settle))
+                Logger.debug(string.format("Recovery.waitUntilRunning: %s opened after %ds; settling %ds", name, elapsed, settle))
                 Timer.sleep(settle)
                 return true
             end
@@ -188,7 +193,9 @@ function Recovery.relaunch(instance)
         return false
     end
 
-    Logger.info("Recovery.relaunch: force-stopping and relaunching " .. tostring(instance.name or pkg))
+    Logger.debug("Recovery.relaunch: force-stopping and relaunching " .. tostring(instance.name or pkg))
+    local instId = instance.id or instance.name or tostring(pkg)
+    Status.beginResetting(instId)
 
     local ok_fs = APK.forceStop(pkg)
     if not ok_fs then
@@ -200,10 +207,12 @@ function Recovery.relaunch(instance)
     local ok, err = APK.launch(pkg)
     if not ok then
         Logger.error("Recovery.relaunch: launch failed for " .. tostring(instance.name or pkg) .. ": " .. tostring(err))
+        Status.endResetting(instId)
         return false
     end
 
-    Logger.info("Recovery.relaunch: relaunched " .. tostring(instance.name or pkg))
+    Logger.debug("Recovery.relaunch: relaunched " .. tostring(instance.name or pkg))
+    Status.endResetting(instId)
     return true
 end
 

@@ -62,12 +62,8 @@ end
 
 local data = conf
 
-print("monitorInterval=", data.monitorInterval)
-
 local InstanceManager = require("managers.instance")
 InstanceManager.load(Config.get())
-
-print("instance count=", InstanceManager.count())
 
 -- Headless mode: optionally start monitor immediately
 if headless and startMonitorFlag then
@@ -100,28 +96,24 @@ while true do
         if #list == 0 then
             print("No instances configured.")
         else
-            print("Launching all instances (one at a time)...")
-            print("(tekan Ctrl+C untuk berhenti monitor)")
+            Logger.setConsoleVisible(false)
             local APK = require("managers.apk")
             local packages = {}
             for _, inst in ipairs(list) do
                 if inst.package then table.insert(packages, inst.package) end
             end
             local baseline = APK.countRunning(packages)
-            print(string.format("(already running %d instance(s))", baseline))
             for i, inst in ipairs(list) do
-                print(string.format("  launching id=%s name=%s package=%s", tostring(inst.id), tostring(inst.name or ""), tostring(inst.package or "")))
                 local ok = Recovery.launchAndJoin(inst)
                 if not ok then
-                    print(string.format("  launch failed for id=%s", tostring(inst.id)))
+                    Logger.debug(string.format("launch failed for id=%s", tostring(inst.id)))
                 else
-                    print("  waiting for it to open before the next one...")
                     Recovery.waitUntilRunning(inst, { targetCount = baseline + i, instances = list })
                 end
             end
-            print("Starting monitor...")
             local Monitor = require("managers.monitor")
             Monitor.start(Config.get())
+            Logger.setConsoleVisible(true)
             if Monitor.interrupted() then
                 print("Monitor stopped by Ctrl+C; exiting.")
                 os.exit(0)
