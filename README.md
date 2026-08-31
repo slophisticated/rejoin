@@ -19,7 +19,7 @@ Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termu
 - **Live status per instance** — monitor menampilkan status tiap instance (`offline`, `starting`, `ingame`, `nologin`, `stuck`, `freeze`, `recovery`) setiap siklus.
 - **Auto relaunch freeze** — app yang freeze/stuck lebih dari `freezeTimeout` (default 300 detik / 5 menit) otomatis di-force-stop & di-relaunch.
 - **RSS-based health** — clone dideteksi benar-benar jalan (bukan sekadar proses hidup) lewat RSS ≥ `minRss` (default 200 MB). Clone yang di-close (stub RSS rendah) otomatis di-relaunch.
-- **Skip restart jika belum login** — clone yang **belum punya akun Roblox login** dan RSS rendah dianggap idle (status `NoLogin`), tidak pernah di-force-relaunch (login screen wajar RSS kecil). Deteksi otomatis via WebView cookie (`.ROBLOSECURITY`) — lihat `Auth` / `cookiePath`.
+- **Skip restart jika belum login** — clone yang **belum punya akun Roblox login** dan RSS rendah dianggap idle (status `NoLogin`), tidak pernah di-force-relaunch apapun status/kejadiannya (login screen wajar RSS kecil). Deteksi otomatis dengan **scan recursive** token `.ROBLOSECURITY` di direktori data clone (root) — work untuk clone Roblox Lite/mod, bukan cuma `app_webview`. Lihat `Auth` / `cookiePath`.
 - **Optimasi RAM/CPU** — semua clone di-deprioritze (`renice 19` + `ionice idle`) supaya 4 floating window tidak rebutan CPU/RAM. Di-apply ulang tiap launch/recovery (karena pid berubah).
 - **Recovery** — force-stop → launch → buka game/private server → lanjut monitoring. Dicoba berulang (sesuai `recoveryRetries`).
 - **AutoExecute / Script Manager** — kelola **banyak script `.lua`** (global, dipakai semua instance) lewat menu `6) AutoExecute Manager`: List / Create / Edit / Delete / Deploy. Script di-deploy manual ke folder autoexecute tiap aplikasi (`appAutoExecutePath`) via root. Rejoin adalah pengelola script — **semua logika ditulis user** di dalam file script.
@@ -146,7 +146,8 @@ return {
             name = "Main",
             package = "com.apengjers.v3",
             privateServer = "https://www.roblox.com/games/107778070777162/Steal-An-Egg",
-            -- cookiePath (opsional): lokasi DB cookie WebView clone utk deteksi login.
+            -- cookiePath (opsional): base direktori data clone utk deteksi login (scan
+            -- recursive token .ROBLOSECURITY). Kosong = pakai default /data/data/<package>
             -- Kosong = pakai default /data/data/<package>/app_webview/Default/Cookies
         },
         {

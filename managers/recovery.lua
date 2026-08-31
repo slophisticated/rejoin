@@ -4,6 +4,7 @@ local UtilsAndroid = require("utils.android")
 local Timer = require("utils.timer")
 local Config = require("core.config")
 local Status = require("managers.status")
+local Auth = require("managers.auth")
 
 local Recovery = {}
 
@@ -188,6 +189,13 @@ function Recovery.relaunch(instance)
         return false
     end
 
+    -- Never force-relaunch a clone that has no logged-in account: low RSS is expected
+    -- while it sits on the login screen, and relaunching it is pointless.
+    if Auth.isLoggedIn(instance) == false then
+        Logger.info("Recovery.relaunch: skipped restart (" .. tostring(pkg) .. ") not logged in")
+        return false
+    end
+
     Logger.debug("Recovery.relaunch: force-stopping and relaunching " .. tostring(instance.name or pkg))
 
     local ok_fs = APK.forceStop(pkg)
@@ -213,6 +221,13 @@ function Recovery.checkAndRecover(instance)
     local pkg = instance and instance.package
     if not pkg then
         Logger.error("Recovery: instance has no package")
+        return false
+    end
+
+    -- Never recover/relaunch a clone that has no logged-in account: low RSS / inactivity
+    -- is expected on the login screen, and recovering it only wastes resources.
+    if Auth.isLoggedIn(instance) == false then
+        Logger.info("Recovery: skipped recovery (" .. tostring(pkg) .. ") not logged in")
         return false
     end
 

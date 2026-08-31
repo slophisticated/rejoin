@@ -249,6 +249,11 @@ Initial Project
 - `utils/timer.lua`: the no-socket fallback is now a **busy-wait** on `os.clock()` (still uses `socket.sleep` when luasocket is present). No `os.execute("sleep")` anymore → signals are never blocked, so Ctrl+C is delivered immediately.
 - Result: Ctrl+C stops the monitor and exits the program right away (cleanly with `lua-posix`; via default SIGINT termination without it). Tradeoff: a little CPU spin during the waits, no extra install needed.
 
+## v0.7.2 — Fix "not logged in" detection + never relaunch no-login clones
+
+- `managers/auth.lua` rewritten: `Auth.isLoggedIn` no longer depends on one hardcoded cookie path (`app_webview/Default/Cookies`). It now **recursively greps the clone's data dir** (`/data/data/<pkg>`, or a per-instance `cookiePath` override) for a `.ROBLOSECURITY` token via root — this handles Lite/Floating/mod clones that store the session elsewhere. Short per-instance TTL cache (30s) avoids grepping every monitor cycle. Returns `true`/`false`/`nil`; `nil` (couldn't probe) keeps the old restart-safe behavior.
+- **Hard anti-restart guard for no-login clones** (`managers/monitor.lua` + `managers/recovery.lua`): if `Auth.isLoggedIn(instance) == false` then the clone is treated as idle (low RSS is expected on the login screen) and is **never force-relaunched** — on the freeze-timeout path, on the healthy/recovery path (`checkAndRecover`), and inside `Recovery.relaunch`/`checkAndRecover` themselves. Reason is logged ("skipped restart/recovery ... not logged in"). Previously the guard only triggered when the transient status was `nologin` and detection could silently return `true`/`nil`, so a no-login clone could still be relaunched.
+
 ## Upcoming
 
 - Shell Wrapper

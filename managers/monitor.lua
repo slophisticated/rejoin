@@ -1,6 +1,7 @@
 local Logger = require("core.logger")
 local Timer = require("utils.timer")
 local Status = require("managers.status")
+local Auth = require("managers.auth")
 local ProbeLog = require("utils.probe_log")
 
 local Monitor = {}
@@ -148,29 +149,35 @@ function Monitor.start(conf, opts)
             status = okStatus and resStatus or "unknown"
             statuses[id] = status
 
-            -- If frozen/stuck long enough, relaunch the app.
+            -- If frozen/stuck long enough, relaunch the app — UNLESS the clone has no
+            -- logged-in account: then low RSS / no activity is expected (it's just sitting
+            -- on the login screen), so it must never be force-relaunched.
             local timeToRelaunch = false
             if status == "freeze" then
                 local p_ok, should = pcall(function() return Status.isFreezeTimeout(id) end)
                 timeToRelaunch = p_ok and should
             end
             if timeToRelaunch then
-                Logger.warn(string.format("Monitor: instance %s frozen too long; relaunching", name))
-                Status.beginRecovery(id)
-                ProbeLog.line(string.format("[%s] EVENT relaunch_begin %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
-                local r_ok, r_err = pcall(function()
-                    return recoveryManager.relaunch(inst)
-                end)
-                if not r_ok or not r_err then
-                    Logger.error(string.format("Monitor: relaunch failed for %s: %s", name, tostring(r_err)))
-                    ProbeLog.line(string.format("[%s] EVENT relaunch_failed %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
+                if Auth.isLoggedIn(inst) == false then
+                    Logger.debug(string.format("Monitor: %s not logged in; skipping relaunch", name))
                 else
-                    Logger.info(string.format("Monitor: relaunched %s", name))
-                    ProbeLog.line(string.format("[%s] EVENT relaunch_success %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
-                    -- relaunch() restart changes the pid; re-apply deprioritization.
-                    pcall(function() return Optimizer.applyForInstance(inst) end)
+                    Logger.warn(string.format("Monitor: instance %s frozen too long; relaunching", name))
+                    Status.beginRecovery(id)
+                    ProbeLog.line(string.format("[%s] EVENT relaunch_begin %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
+                    local r_ok, r_err = pcall(function()
+                        return recoveryManager.relaunch(inst)
+                    end)
+                    if not r_ok or not r_err then
+                        Logger.error(string.format("Monitor: relaunch failed for %s: %s", name, tostring(r_err)))
+                        ProbeLog.line(string.format("[%s] EVENT relaunch_failed %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
+                    else
+                        Logger.info(string.format("Monitor: relaunched %s", name))
+                        ProbeLog.line(string.format("[%s] EVENT relaunch_success %s (%s)", os.date("%H:%M:%S"), name, tostring(pkg)))
+                        -- relaunch() restart changes the pid; re-apply deprioritization.
+                        pcall(function() return Optimizer.applyForInstance(inst) end)
+                    end
+                    Status.endRecovery(id)
                 end
-                Status.endRecovery(id)
             end
 
             -- Health is based on the REAL process state every cycle (not the status
@@ -191,9 +198,10 @@ function Monitor.start(conf, opts)
                 Logger.debug(string.format("Monitor: instance healthy: %s", name))
             else
                 Logger.warn(string.format("Monitor: instance not healthy: %s", name))
-                -- A clone that has no logged-in account and low RSS is treated as idle
-                -- (low memory is expected on the login screen). Never force-recover it.
-                if status == "nologin" then
+                -- A clone that has no logged-in account is treated as idle (low memory is
+                -- expected while it sits on the login screen). Never force-recover it,
+                -- regardless of the transient status shown.
+                if status == "nologin" or Auth.isLoggedIn(inst) == false then
                     Logger.debug(string.format("Monitor: instance %s not logged in; treating as idle (no recovery)", name))
                 elseif isRecovering(id) then
                     Logger.info(string.format("Monitor: recovery already in progress for %s; skipping", name))

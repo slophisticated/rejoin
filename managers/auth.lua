@@ -3,68 +3,114 @@ local Shell = require("utils.shell")
 
 -- Auth / account-login detection.
 --
--- Roblox for Android stores its session cookie in the WebView cookie database at
---   /data/data/<package>/app_webview/Default/Cookies
--- (a SQLite file). When an account is logged in, a `.ROBLOSECURITY` token row exists.
+-- Roblox (incl. Lite/Floating mod clones) stores its session cookie as a
+-- `.ROBLOSECURITY` token somewhere under the app's data directory. For a stock
+-- install that is the WebView cookie DB at
+--   /data/data/<package>/app_webview/Default/Cookies   (a SQLite file)
+-- but modded/"Lite" clones can keep it in a different place (databases, shared_prefs,
+-- app_flutter, ...). Rather than pin one path, we SCAN the clone's data directory
+-- recursively (root) for the token.
 --
--- A clone that has NEVER been logged in either has no cookie DB yet or an empty one.
--- We use that to tell "not logged in" apart from "force-close stub": when a clone is
--- low-RSS AND not logged in, it is treated as idle and never force-relaunched.
+-- A clone that has NEVER been logged in has no `.ROBLOSECURITY` token anywhere, so we
+-- can tell "not logged in" apart from "force-close stub". When `isLoggedIn == false`
+-- the monitor/recovery must NEVER force-relaunch the clone (low RSS is expected while
+-- sitting on the login screen).
 --
--- The path is configurable per instance via `cookiePath` (App Cloner may move data).
--- Root is required to read the app's data directory (Shell.exec wraps with su).
+-- Returns:
+--   true  -> an account is logged in (a session token is present)
+--   false -> definitely NOT logged in (no token found anywhere under the data dir)
+--   nil   -> could not determine (e.g. root read failed). Callers fall back to the
+--            restart-safe behavior (treat as logged in / relaunch normally).
+--
+-- The scan is cached per instance for a short TTL so we do not grep every monitor cycle.
+-- `cookiePath`, if set on an instance, overrides the base directory to scan.
 
 local Auth = {}
 
-local function defaultCookiePath(pkg)
-    return "/data/data/" .. pkg .. "/app_webview/Default/Cookies"
+-- Cache: pkg -> { result, at }  (result one of true/false/nil)
+local cache = {}
+local TTL = 30 -- seconds
+
+local function defaultBaseDir(pkg)
+    return "/data/data/" .. pkg
 end
 
-local function resolvePath(instance)
+local function baseDir(instance)
     if instance and instance.cookiePath and instance.cookiePath ~= "" then
         return instance.cookiePath
     end
     if instance and instance.package then
-        return defaultCookiePath(instance.package)
+        return defaultBaseDir(instance.package)
     end
     return nil
 end
 
--- Returns:
---   true  -> an account is logged in (a session token is present)
---   false -> definitely NOT logged in (cookie DB missing, or no token stored)
---   nil   -> could not determine (e.g. root read failed). Callers fall back to the
---            restart-safe behavior (i.e. treat as logged in / relaunch normally).
+-- Grep recursively (as root) for the token under `base`. Returns the number of lines
+-- matched, or nil if the probe itself failed (dir missing / not readable / grep error).
+local function countToken(base)
+    -- `grep -a -r -l` prints the file paths that contain the token; `-l` means we only
+    -- get file names (one per line) so the count is the number of files with the token.
+    local cmd = string.format("grep -a -r -l '.ROBLOSECURITY' '%s' 2>/dev/null", base)
+    local ok, out = pcall(function() return Shell.exec(cmd) end)
+    if not ok or not out or out == "(dry-run)" then return nil end
+    -- Empty output = no matches found (dir exists and was scanned OK). We cannot tell a
+    -- truly empty result from "grep failed" via output alone, so first verify the base
+    -- dir is readable; if it is, empty means "no session".
+    return out
+end
+
+local function baseDirExists(base)
+    local cmd = string.format("[ -d '%s' ] && echo AE_DIR || echo AE_NODIR", base)
+    local ok, out = pcall(function() return Shell.exec(cmd) end)
+    if not ok or not out or out == "(dry-run)" then return nil end
+    if out:find("AE_DIR", 1, true) then return true end
+    if out:find("AE_NODIR", 1, true) then return false end
+    return nil
+end
+
 function Auth.isLoggedIn(instance)
     local pkg = instance and instance.package
     if not pkg then return nil end
-    local path = resolvePath(instance)
-    if not path then return nil end
+    local base = baseDir(instance)
+    if not base then return nil end
 
-    -- 1) Does the cookie DB exist? A missing file means the app has never stored a
-    --    session (never logged in).
-    local existsCmd = string.format("[ -f '%s' ] && echo AE_EXISTS || echo AE_MISSING", path)
-    local ok, out = pcall(function() return Shell.exec(existsCmd) end)
-    if not ok or not out or out == "(dry-run)" then return nil end
-    if out:find("AE_MISSING", 1, true) then
-        return false
-    end
-    if not out:find("AE_EXISTS", 1, true) then
-        -- no marker at all -> the root probe failed -> indeterminate
-        return nil
+    -- Cache check.
+    local cached = cache[pkg]
+    local now = os.time()
+    if cached and now - cached.at < TTL then
+        return cached.result
     end
 
-    -- 2) DB exists; look for the `.ROBLOSECURITY` token. It's a binary (SQLite) file,
-    --    so use `grep -a`. `-c` prints a count (0 when absent) as long as the file can
-    --    be read; empty output means the read itself failed -> indeterminate.
-    local grepCmd = string.format("grep -a -c '.ROBLOSECURITY' '%s'", path)
-    local ok2, out2 = pcall(function() return Shell.exec(grepCmd) end)
-    if not ok2 or not out2 or out2 == "(dry-run)" then return nil end
-    out2 = out2:gsub("%s+", "")
-    if out2 == "" then return nil end
-    local count = tonumber(out2)
-    if not count then return nil end
-    return count > 0
+    local result
+    do
+        local exists = baseDirExists(base)
+        if exists == false then
+            -- Data dir does not exist => the app has never stored anything => not logged in.
+            result = false
+        elseif exists == nil then
+            -- Could not even probe the dir => indeterminate.
+            result = nil
+        else
+            local hits = countToken(base)
+            if hits == nil then
+                -- grep probe failed => indeterminate.
+                result = nil
+            elseif hits ~= "" then
+                result = true
+            else
+                result = false
+            end
+        end
+    end
+
+    cache[pkg] = { result = result, at = now }
+    Logger.debug(string.format("Auth.isLoggedIn(%s): base=%s -> %s", pkg, base, tostring(result)))
+    return result
+end
+
+-- Clear the cache (e.g. after a login/logout or on monitor start).
+function Auth.resetCache()
+    cache = {}
 end
 
 return Auth
