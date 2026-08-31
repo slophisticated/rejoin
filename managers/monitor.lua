@@ -20,7 +20,11 @@ local Optimizer = nil
 local function installSignalHandler()
     local ok, posix = pcall(require, "posix.signal")
     if not ok or not posix then
-        Logger.warn("Monitor: lua-posix NOT found -> Ctrl+C will NOT stop the monitor. Install with:  pkg install lua-posix")
+        -- lua-posix is not available in Termux's repos for this setup. Without it there
+        -- is no pure-Lua way to catch SIGINT, and the default action is unreliable here
+        -- (the monitor is almost always inside os.execute, which blocks SIGINT). Advise
+        -- the run.sh wrapper, which catches Ctrl+C in the shell and kill(1)s us, instead.
+        Logger.warn("Monitor: lua-posix not available; run via `sh run.sh` so Ctrl+C can stop the engine")
         return false
     end
     local sigint = posix.SIGINT or 2

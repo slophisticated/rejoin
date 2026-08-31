@@ -265,6 +265,14 @@ Initial Project
 - `utils/timer.lua`: **reverted the busy-wait fallback** back to `os.execute("sleep")`. The busy-wait pinned a core at 100% CPU (hot/unresponsive device) and did NOT fix Ctrl+C (which needs the handler, not non-blocked signals). With lua-posix the signal is only delayed by ≤ the current 0.25s chunk, so Ctrl+C still stops quickly.
 - Requires on device: `pkg install lua-posix` (auto-installed by setup.sh for Lua PUC-Rio). README prerequisites updated.
 
+## v0.7.5 — Ctrl+C via run.sh shell wrapper (no lua-posix needed)
+
+- **`lua-posix` is NOT available in Termux's repos** for this setup (`pkg search posix` returns nothing), so the in-process SIGINT handler can't be used there. The real blocker is structural: the monitor loop (`managers/monitor.lua`) spends nearly all of each cycle inside `os.execute`/`io.popen` (`Status.check`, `apkManager.isActive`, `Auth.isLoggedIn`, `ProbeLog.scan`), and POSIX **blocks SIGINT while inside `system()`/`popen()`** — so the default SIGINT action (which works fine in most other tools, e.g. one-shot setup scripts that idle on `io.read`) is swallowed here.
+- Added **`run.sh`**             : a one-file shell wrapper that launches `lua main.lua "$@"` as a child, installs a `trap INT TERM` that `kill -TERM` the child, and `wait`s on it. `kill(1)` from outside the process is unaffected by the child's internal SIGINT blocking, so Ctrl+C stops the engine reliably **in the same terminal** — no extra session needed. Usage: `sh run.sh [flags...]`.
+- `managers/monitor.lua`: `installSignalHandler` warning updated — instead of telling the user to `pkg install lua-posix` (unavailable), it now points to `sh run.sh`. The handler itself is kept (used automatically when lua-posix exists on another device).
+- README: prerequisites + quickstart + headless sections updated to run via `run.sh`; lua-posix demoted to optional. `termux-boot.sh` unchanged (boot service has no interactive terminal, so Ctrl+C is not relevant there).
+
+
 ## Upcoming
 
 - Shell Wrapper

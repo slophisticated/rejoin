@@ -30,16 +30,24 @@ Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termu
 
 - Android 10+
 - Termux + akses root (Magisk/KernelSU) untuk beberapa fitur
-- Lua **PUC-Rio** (5.3/5.4) + **`lua-posix`** (WAJIB agar Ctrl+C bisa menghentikan program; setup.sh menginstal otomatis untuk `lua`, bukan luajit)
+- Lua **PUC-Rio** (5.3/5.4) — setup.sh menginstal otomatis untuk `lua`
 - Perintah shell Android: `am`, `pm`, `pidof`/`pgrep`/`ps`, `cp`
 
-Ctrl+C membutuhkan lua-posix. Jika belum: `pkg install lua-posix`. Tanpa itu monitor tidak bisa dihentikan via Ctrl+C.
+### Agar Ctrl+C bisa menghentikan program
+
+Monitor nyaris sepanjang waktu berada di dalam `os.execute`/`io.popen` (memanggil `ps`, `pidof`, dsb.), dan POSIX **memblokir SIGINT** saat proses ada di dalam `system()`/`popen()` — jadi `lua main.lua` langsung sering menelan Ctrl+C. Solusinya jalankan lewat **`run.sh`**: shell wrapper itu menangkap Ctrl+C sendiri lalu `kill` child Lua, sehingga berhenti andal dalam satu terminal (tanpa install `lua-posix`, yang tidak tersedia di repo Termux).
+
+```sh
+sh run.sh            # atau chmod +x run.sh && ./run.sh ...
+```
+
+`lua-posix` (opsional, bila tersedia di device lain) tetap dipakai otomatis oleh `managers/monitor.lua` untuk menghentikan program dari dalam proses.
 
 ---
 
 ## Quickstart (Termux/Android)
 
-1. Pastikan Termux punya Lua PUC-Rio + `lua-posix` (`pkg install lua lua-posix`).
+1. Pastikan Termux punya Lua PUC-Rio (`pkg install lua`).
 
 2. Letakkan project di device, lalu jalankan setup (sekali):
    ```sh
@@ -47,9 +55,9 @@ Ctrl+C membutuhkan lua-posix. Jika belum: `pkg install lua-posix`. Tanpa itu mon
    chmod +x setup.sh && ./setup.sh
    ```
 
-3. Jalankan tools:
+3. Jalankan tools (pakai `run.sh` supaya Ctrl+C bisa berhenti):
    ```sh
-   lua main.lua
+   sh run.sh
    ```
    - Jika `config/config.lua` belum ada, **Setup Wizard** akan berjalan untuk mendeteksi/menambah instance.
 
@@ -59,19 +67,19 @@ Ctrl+C membutuhkan lua-posix. Jika belum: `pkg install lua-posix`. Tanpa itu mon
 
 - Mulai monitor langsung (tanpa menu):
   ```sh
-  lua main.lua --headless --start-monitor
+  sh run.sh --headless --start-monitor
   ```
 - Lewati wizard saat config belum ada:
   ```sh
-  lua main.lua --no-wizard
+  sh run.sh --no-wizard
   ```
 - Simulasi tanpa efek samping shell (dry-run):
   ```sh
-  lua main.lua --dry-run --headless --start-monitor
+  sh run.sh --dry-run --headless --start-monitor
   ```
 - Sama seperti Menu 1 (launch semua clone + optimizer, lalu monitor) secara non-interaktif:
   ```sh
-  lua main.lua --headless --start-monitor --auto-launch
+  sh run.sh --headless --start-monitor --auto-launch
   ```
 
 ### Auto-start saat boot (Termux:Boot)
