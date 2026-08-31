@@ -30,14 +30,16 @@ Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termu
 
 - Android 10+
 - Termux + akses root (Magisk/KernelSU) untuk beberapa fitur
-- Lua 5.3 (atau LuaJIT via `setup.sh`)
+- Lua **PUC-Rio** (5.3/5.4) + **`lua-posix`** (WAJIB agar Ctrl+C bisa menghentikan program; setup.sh menginstal otomatis untuk `lua`, bukan luajit)
 - Perintah shell Android: `am`, `pm`, `pidof`/`pgrep`/`ps`, `cp`
+
+Ctrl+C membutuhkan lua-posix. Jika belum: `pkg install lua-posix`. Tanpa itu monitor tidak bisa dihentikan via Ctrl+C.
 
 ---
 
 ## Quickstart (Termux/Android)
 
-1. Pastikan Termux punya Lua 5.3 + tools yang dibutuhkan.
+1. Pastikan Termux punya Lua PUC-Rio + `lua-posix` (`pkg install lua lua-posix`).
 
 2. Letakkan project di device, lalu jalankan setup (sekali):
    ```sh

@@ -258,6 +258,13 @@ Initial Project
 
 - `managers/auth.lua` used `local ok, out = pcall(function() return Shell.exec(cmd) end)` in `countToken` and `baseDirExists`. `Shell.exec` returns `(ok, output)`, so `pcall` returns `(true, ok, output)` — capturing only two values made `out` the boolean `Shell`'s ok, so `out:find(...)` crashed with "attempt to index a boolean value" right after launch (see errorlogs.md). Fixed both to capture the third value (`local ok, _, out = ...`), matching the rest of the codebase (optimizer/probe_log). Audited: no other `pcall(Shell.exec)` site is affected.
 
+## v0.7.4 — Ctrl+C fix: require lua-posix, revert busy-wait
+
+- **Root cause of Ctrl+C not stopping the program**: the SIGINT handler needs `lua-posix`, which was absent on the device → no handler installed → the default SIGINT action does not kill the program in Termux, so Ctrl+C did nothing. (Confirmed: device runs Lua PUC-Rio 5.4.8, so lua-posix is installable.)
+- `managers/monitor.lua`: the SIGINT callback now calls `os.exit(0)` directly (plus sets `running=false`/`interrupted`), so Ctrl+C exits the program decisively the moment the signal is received. Clearer warning when lua-posix is missing.
+- `utils/timer.lua`: **reverted the busy-wait fallback** back to `os.execute("sleep")`. The busy-wait pinned a core at 100% CPU (hot/unresponsive device) and did NOT fix Ctrl+C (which needs the handler, not non-blocked signals). With lua-posix the signal is only delayed by ≤ the current 0.25s chunk, so Ctrl+C still stops quickly.
+- Requires on device: `pkg install lua-posix` (auto-installed by setup.sh for Lua PUC-Rio). README prerequisites updated.
+
 ## Upcoming
 
 - Shell Wrapper

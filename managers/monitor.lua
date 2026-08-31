@@ -13,25 +13,28 @@ local recoveryManager = nil
 local apkManager = nil
 local Optimizer = nil
 
--- Install a SIGINT handler via lua-posix so Ctrl+C stops monitoring cleanly (restores
--- the console/cursor before the program exits via main.lua). Timer.sleep now uses a
--- busy-wait (no os.execute that blocks SIGINT), so the signal is always delivered to
--- this handler immediately. When lua-posix is absent, Ctrl+C still works: the
--- unblocked SIGINT just kills the program via the default action.
+-- Install a SIGINT handler via lua-posix so Ctrl+C stops monitoring and exits the
+-- program immediately. This is the ONLY reliable way to catch Ctrl+C in Termux: the
+-- default SIGINT action does NOT kill the program here, and without a handler the
+-- signal is effectively swallowed. Requires `pkg install lua-posix` (Lua PUC-Rio).
 local function installSignalHandler()
     local ok, posix = pcall(require, "posix.signal")
     if not ok or not posix then
-        Logger.warn("Monitor: lua-posix not found; Ctrl+C won't stop the monitor. Install with: pkg install lua-posix")
+        Logger.warn("Monitor: lua-posix NOT found -> Ctrl+C will NOT stop the monitor. Install with:  pkg install lua-posix")
         return false
     end
     local sigint = posix.SIGINT or 2
     pcall(function()
         posix.signal(sigint, function()
+            -- Flip flags so the monitor loop unwinds, then exit hard. os.exit from a
+            -- signal handler is not strictly async-signal-safe, but works on PUC-Rio
+            -- / LuaJIT in practice and makes Ctrl+C stop the program decisively.
             running = false
             interrupted = true
+            os.exit(0)
         end)
     end)
-    Logger.info("Monitor: SIGINT handler installed (Ctrl+C will stop monitoring)")
+    Logger.info("Monitor: SIGINT handler installed (Ctrl+C will exit)")
     return true
 end
 

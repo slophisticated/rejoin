@@ -10,22 +10,14 @@ function Timer.sleep(seconds)
         return true
     end
 
-    -- Fallback: BUSY-WAIT on os.clock() instead of `os.execute("sleep")`.
-    --
-    -- Do NOT use os.execute("sleep ..."): POSIX system() BLOCKS SIGINT/SIGQUIT while
-    -- the child runs, so Ctrl+C (SIGINT) never reaches the Lua process while we are
-    -- waiting -> the monitor looks like it can't be stopped. A busy-wait loop never
-    -- blocks signals, so Ctrl+C is delivered immediately (default action kills the
-    -- program, or a lua-posix handler runs right away). Cost: a little CPU spin for
-    -- the duration of the sleep.
-    if seconds then
-        local t0 = os.clock()
-        while (os.clock() - t0) < seconds do
-            -- spin; keeps signal delivery unblocked
-        end
-        return true
-    end
-    return false
+    -- Fallback to os.execute sleep (Termux/Linux). With a lua-posix SIGINT handler
+    -- installed, `system()` only delays the signal by at most the current chunk
+    -- (<=0.25s in sleepInterruptible), so Ctrl+C still stops the monitor quickly.
+    -- NOTE: do NOT use a busy-wait (os.clock) here — it pins a core at 100% CPU the
+    -- whole time and makes the device hot/unresponsive (and does NOT fix Ctrl+C,
+    -- which needs the lua-posix handler, not just non-blocked signals).
+    os.execute("sleep " .. tostring(seconds))
+    return true
 end
 
 -- Sleep in small steps so a SIGINT handler (that flips isStopped to true) can break
