@@ -254,6 +254,10 @@ Initial Project
 - `managers/auth.lua` rewritten: `Auth.isLoggedIn` no longer depends on one hardcoded cookie path (`app_webview/Default/Cookies`). It now **recursively greps the clone's data dir** (`/data/data/<pkg>`, or a per-instance `cookiePath` override) for a `.ROBLOSECURITY` token via root — this handles Lite/Floating/mod clones that store the session elsewhere. Short per-instance TTL cache (30s) avoids grepping every monitor cycle. Returns `true`/`false`/`nil`; `nil` (couldn't probe) keeps the old restart-safe behavior.
 - **Hard anti-restart guard for no-login clones** (`managers/monitor.lua` + `managers/recovery.lua`): if `Auth.isLoggedIn(instance) == false` then the clone is treated as idle (low RSS is expected on the login screen) and is **never force-relaunched** — on the freeze-timeout path, on the healthy/recovery path (`checkAndRecover`), and inside `Recovery.relaunch`/`checkAndRecover` themselves. Reason is logged ("skipped restart/recovery ... not logged in"). Previously the guard only triggered when the transient status was `nologin` and detection could silently return `true`/`nil`, so a no-login clone could still be relaunched.
 
+## v0.7.3 — Fix crash in Auth.lua (pcall + Shell.exec multi-return)
+
+- `managers/auth.lua` used `local ok, out = pcall(function() return Shell.exec(cmd) end)` in `countToken` and `baseDirExists`. `Shell.exec` returns `(ok, output)`, so `pcall` returns `(true, ok, output)` — capturing only two values made `out` the boolean `Shell`'s ok, so `out:find(...)` crashed with "attempt to index a boolean value" right after launch (see errorlogs.md). Fixed both to capture the third value (`local ok, _, out = ...`), matching the rest of the codebase (optimizer/probe_log). Audited: no other `pcall(Shell.exec)` site is affected.
+
 ## Upcoming
 
 - Shell Wrapper

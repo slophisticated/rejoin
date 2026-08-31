@@ -51,7 +51,9 @@ local function countToken(base)
     -- `grep -a -r -l` prints the file paths that contain the token; `-l` means we only
     -- get file names (one per line) so the count is the number of files with the token.
     local cmd = string.format("grep -a -r -l '.ROBLOSECURITY' '%s' 2>/dev/null", base)
-    local ok, out = pcall(function() return Shell.exec(cmd) end)
+    -- Shell.exec returns (ok, output); pcall returns (true, ok, output) so capture the
+    -- THIRD value (the actual output string), not the second (Shell's ok boolean).
+    local ok, _, out = pcall(function() return Shell.exec(cmd) end)
     if not ok or not out or out == "(dry-run)" then return nil end
     -- Empty output = no matches found (dir exists and was scanned OK). We cannot tell a
     -- truly empty result from "grep failed" via output alone, so first verify the base
@@ -61,7 +63,8 @@ end
 
 local function baseDirExists(base)
     local cmd = string.format("[ -d '%s' ] && echo AE_DIR || echo AE_NODIR", base)
-    local ok, out = pcall(function() return Shell.exec(cmd) end)
+    -- See countToken: capture the THIRD pcall value (the output string).
+    local ok, _, out = pcall(function() return Shell.exec(cmd) end)
     if not ok or not out or out == "(dry-run)" then return nil end
     if out:find("AE_DIR", 1, true) then return true end
     if out:find("AE_NODIR", 1, true) then return false end
