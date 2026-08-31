@@ -69,6 +69,24 @@ Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termu
   ```sh
   lua main.lua --dry-run --headless --start-monitor
   ```
+- Sama seperti Menu 1 (launch semua clone + optimizer, lalu monitor) secara non-interaktif:
+  ```sh
+  lua main.lua --headless --start-monitor --auto-launch
+  ```
+
+### Auto-start saat boot (Termux:Boot)
+
+Biar Termux otomatis terbuka & langsung jalan ke Menu 1 setiap HP dinyalakan:
+
+1. `pkg install termux-boot` + pasang aplikasi **Termux:Boot** dari F-Droid.
+2. Siapkan script boot:
+   ```sh
+   mkdir -p ~/.termux/boot
+   cp termux-boot.sh ~/.termux/boot/start-rejoin.sh
+   chmod +x ~/.termux/boot/start-rejoin.sh
+   ```
+3. **Buka aplikasi Termux:Boot sekali** (agar boot receiver terdaftar), lalu reboot HP.
+4. Setiap boot, Termux terbuka otomatis dan menjalankan `lua main.lua --headless --start-monitor --auto-launch` (setara pilih menu `1`).
 
 ---
 
@@ -161,6 +179,7 @@ Catatan link:
 rejoin/
 ├── main.lua                    # entry point + main menu
 ├── setup.sh                    # setup skrip Termux
+├── termux-boot.sh              # template auto-start saat boot (Termux:Boot)
 ├── debug_probe.lua             # alat diagnostik manual: cek isRunning/isActive per clone
 ├── launch.log                  # auto-debug tiap siklus menu 1 (Launch + Monitor)
 ├── config/

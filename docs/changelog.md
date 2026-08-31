@@ -222,6 +222,8 @@ Initial Project
 - Optimizer is re-applied after every launch AND every recovery/relaunch — each clone restart gets a new pid, so tuning must be re-run each time.
 - Fix: `Shell.exec` returns `(ok, output)`; any `pcall(function() return Shell.exec(...) end)` previously captured the boolean as the "output string" (crashes with `attempt to index a boolean value`) and would have crashed `optimizer.lua`/`probe_log.lua` during Menu 1. All sites now capture the 3rd pcall value (`local ok, _, out = pcall(...)`).
 - Removed the experimental auto-resize (2×2 grid / `windowLayout` / `debug_resize.lua` / `display.md`) — results were poor, reverted to keep only the optimizer.
+- `main.lua`: new `--auto-launch` flag — `lua main.lua --headless --start-monitor --auto-launch` behaves exactly like Menu 1 (launch all clones + optimizer, then monitor) without a terminal prompt.
+- New `termux-boot.sh` template + README section: auto-open Termux and run Menu 1 on every device boot via the Termux:Boot plugin (`~/termux/boot/start-rejoin.sh`).
 
 ## Upcoming
 

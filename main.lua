@@ -12,6 +12,7 @@ local args = arg or {}
 local headless = false
 local skipWizard = false
 local startMonitorFlag = false
+local autoLaunchFlag = false
 local configSource = nil
 local dryRun = false
 for i = 1, #args do
@@ -19,6 +20,7 @@ for i = 1, #args do
     if a == "--headless" or a == "--no-interactive" then headless = true end
     if a == "--no-wizard" then skipWizard = true end
     if a == "--start-monitor" then startMonitorFlag = true end
+    if a == "--auto-launch" then autoLaunchFlag = true end
     if a == "--dry-run" then dryRun = true end
     if a == "--config" then
         local nextArg = args[i+1]
@@ -69,7 +71,10 @@ InstanceManager.load(Config.get())
 if headless and startMonitorFlag then
     Logger.info("Headless mode: starting monitor")
     local Monitor = require("managers.monitor")
-    Monitor.start(Config.get())
+    -- --auto-launch behaves like Menu 1: launch all clones (Starting -> Running) with
+    -- optimizer applied, then monitor. Without it, only the monitor runs (no launch).
+    local opts = autoLaunchFlag and { autoLaunch = true } or nil
+    Monitor.start(Config.get(), opts)
     os.exit(0)
 end
 
