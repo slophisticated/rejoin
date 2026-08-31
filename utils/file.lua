@@ -53,4 +53,46 @@ function File.copy(src, dest)
     return File.write(dest, content)
 end
 
+-- List file names (optionally filtered by extension) inside a directory.
+-- Returns a table of names (sorted), or nil on failure. Uses lfs when available,
+-- falling back to a shell `ls` (works on Termux/Android).
+function File.listDir(path, ext)
+    if not path or path == "" then return nil, "no_dir" end
+    local names = {}
+    if lfs_ok and lfs and lfs.dir then
+        local ok, it, state = pcall(lfs.dir, path)
+        if ok and it then
+            for name in it, state do
+                if name ~= "." and name ~= ".." then
+                    if not ext or name:sub(-#ext - 1) == "." .. ext then
+                        table.insert(names, name)
+                    end
+                end
+            end
+            table.sort(names)
+            return names
+        end
+        return nil, "lfs_dir_failed"
+    end
+    -- Fallback: shell ls with the extension filter.
+    local okc, out = pcall(function()
+        local cmd = string.format("ls -1 '%s' 2>/dev/null", path)
+        if ext then cmd = string.format("ls -1 '%s'/*.%s 2>/dev/null", path, ext) end
+        local f = io.popen(cmd)
+        if not f then return "" end
+        local s = f:read("*a") or ""
+        f:close()
+        return s
+    end)
+    if not okc then return nil, "ls_failed" end
+    for line in (out or ""):gmatch("[^\r\n]+") do
+        if line ~= "" then
+            local base = line:match("([^/\\]+)$")
+            if base then table.insert(names, base) end
+        end
+    end
+    table.sort(names)
+    return names
+end
+
 return File

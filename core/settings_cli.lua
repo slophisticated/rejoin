@@ -17,7 +17,7 @@ local function printSettings(conf)
     print("  checkTimeout = " .. tostring(conf.checkTimeout))
     print("  debug = " .. tostring(conf.debug))
     print("  logLevel = " .. tostring(conf.logLevel or "INFO"))
-    print("  autoExecute = " .. tostring(conf.autoExecute))
+    print("  appAutoExecutePath = " .. tostring(conf.appAutoExecutePath or ""))
     print("  autoExecuteDeployPath = " .. tostring(conf.autoExecuteDeployPath))
     print("  logPath = " .. tostring(conf.logPath))
     print("  clonePackagePrefix = " .. tostring(conf.clonePackagePrefix or ""))
@@ -38,7 +38,7 @@ function CLI.run()
     conf.checkTimeout = conf.checkTimeout or 15
     conf.debug = conf.debug == nil and true or conf.debug
     conf.logLevel = conf.logLevel or "INFO"
-    conf.autoExecute = conf.autoExecute or ""
+    conf.appAutoExecutePath = conf.appAutoExecutePath or ""
     conf.autoExecuteDeployPath = conf.autoExecuteDeployPath or "data/autoexecute"
     conf.logPath = conf.logPath or "data/rejoin.log"
     conf.clonePackagePrefix = conf.clonePackagePrefix or ""
@@ -51,7 +51,7 @@ function CLI.run()
     if conf.useRoot == nil then conf.useRoot = true end
 
     while true do
-        print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit autoExecute global path\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Edit clonePackagePrefix\n 11) Edit freezeTimeout\n 12) Edit gracePeriod\n 13) Toggle anrCheckEnabled\n 14) Edit launch wait settings\n 15) Edit logLevel\n 16) Save and Exit\n 17) Exit without saving\n')
+        print('\nSettings Menu:\n  1) View settings\n  2) Edit monitorInterval\n  3) Edit recoveryDelay\n  4) Edit recoveryRetries\n  5) Edit checkTimeout\n  6) Toggle debug\n  7) Edit appAutoExecutePath\n  8) Edit autoExecute deploy path\n  9) Edit logPath\n 10) Edit clonePackagePrefix\n 11) Edit freezeTimeout\n 12) Edit gracePeriod\n 13) Toggle anrCheckEnabled\n 14) Edit launch wait settings\n 15) Edit logLevel\n 16) Save and Exit\n 17) Exit without saving\n')
         local choice = prompt("Choose: ") or ""
         choice = choice:match("^%s*(.-)%s*$")
         if choice == "1" then
@@ -76,8 +76,8 @@ function CLI.run()
             conf.debug = not conf.debug
             print("debug = " .. tostring(conf.debug))
         elseif choice == "7" then
-            local v = prompt("autoExecute global path (script): [" .. tostring(conf.autoExecute) .. "] ")
-            if v and v ~= "" then conf.autoExecute = v end
+            local v = prompt("appAutoExecutePath (app autoexecute folder, e.g. /data/data/<pkg>/files/autoexecute): [" .. tostring(conf.appAutoExecutePath or "") .. "] ")
+            if v and v ~= "" then conf.appAutoExecutePath = v end
         elseif choice == "8" then
             local v = prompt("autoExecute deploy path: [" .. tostring(conf.autoExecuteDeployPath) .. "] ")
             if v and v ~= "" then conf.autoExecuteDeployPath = v end

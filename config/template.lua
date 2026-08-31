@@ -1,7 +1,8 @@
 -- Config template for Rejoin Engine
 return {
-    -- AutoExecute is GLOBAL: all instances share the same script.
-    autoExecute = "data/autoexecute/sample_AutoExecute.lua",
+    -- AutoExecute is now a GLOBAL multi-script manager: scripts live in
+    -- `autoExecuteDeployPath` and are deployed manually via the "Script Manager" menu
+    -- into each app (see appAutoExecutePath below). The user writes the scripts.
     monitorInterval = 5,
     recoveryDelay = 3,
     recoveryRetries = 3,
@@ -15,7 +16,9 @@ return {
     -- Optional fast filter for auto-detect clone scan (e.g. "com.apengjers."). Empty = disabled.
     clonePackagePrefix = "",
     -- Seconds an app may stay frozen/stuck before the monitor force-relaunches it.
-    freezeTimeout = 60,
+    -- (5 minutes = 300s). Clones that are NOT logged in are never relaunched regardless
+    -- (see cookiePath / Auth detection).
+    freezeTimeout = 300,
     -- Seconds after launch that a running app is still considered "starting" before it
     -- is judged ingame vs stuck.
     gracePeriod = 30,
@@ -25,7 +28,7 @@ return {
     -- Minimum resident memory (MB) for a clone's process to be considered ACTIVE.
     -- A running clone reads ~1 GB while a force-close stub is ~188 MB, so anything
     -- below this is treated as "not really running" and gets relaunched. Tune if needed.
-    minRss = 300,
+    minRss = 200,
     -- Timeout (seconds) for each shell command (via the `timeout` tool) so a hung
     -- su/dumpsys call can't freeze the whole tool / stop the terminal accepting input.
     shellTimeout = 10,
@@ -43,6 +46,15 @@ return {
         ionice = 3,    -- I/O class: 0=none,1=realtime,2=best-effort,3=idle.
     },
 
+    -- App folder used by Deployment (Script Manager / AutoExecute). The user MUST set
+    -- this to the application's autoexecute path (requires root to write into app data).
+    -- Scripts are copied here as <name>.lua when you choose "Deploy" in the Script Manager.
+    -- Example: "/data/data/com.roblox.client/files/autoexecute"
+    appAutoExecutePath = "",
+
+    -- Where global scripts are stored on the Termux side (Termux folder, no root needed).
+    autoExecuteDeployPath = "data/autoexecute",
+
     -- "Launch All" launches clones ONE AT A TIME, waiting for each to reopen before
     -- starting the next (so floating-window clones each get a chance to appear).
     -- launchWaitInterval: how often (s) to poll for the process while waiting.
@@ -58,11 +70,14 @@ return {
     -- as a normal user cannot see other apps' processes. Set false on a non-root device.
     useRoot = true,
     instances = {
-        -- Example instance (AutoExecute is global; per-instance path is optional override)
-        -- privateServer accepts either a public game link
+        -- Example instance. Private Server accepts either a public game link
         --   https://www.roblox.com/games/<placeId>/...
         -- or a private server share link
         --   https://www.roblox.com/share?code=...&type=Server
+        -- cookiePath (optional): path to this clone's WebView cookie DB used to detect
+        -- whether an account is already logged in. If left empty, the default
+        -- /data/data/<package>/app_webview/Default/Cookies is used. When no login is
+        -- detected the clone is treated as idle and is never force-relaunched.
         {
             id = 1,
             name = "Main",

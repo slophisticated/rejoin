@@ -12,10 +12,11 @@ local recoveryManager = nil
 local apkManager = nil
 local Optimizer = nil
 
--- Install a SIGINT handler via lua-posix so Ctrl+C actually stops monitoring on
--- Termux. Without a handler, `os.execute("sleep")` inside Timer.sleep swallows the
--- signal (POSIX system() blocks SIGINT), so Ctrl+C does nothing while monitoring.
--- The handler just flips flags; the sleep loop checks them each 0.25s and exits.
+-- Install a SIGINT handler via lua-posix so Ctrl+C stops monitoring cleanly (restores
+-- the console/cursor before the program exits via main.lua). Timer.sleep now uses a
+-- busy-wait (no os.execute that blocks SIGINT), so the signal is always delivered to
+-- this handler immediately. When lua-posix is absent, Ctrl+C still works: the
+-- unblocked SIGINT just kills the program via the default action.
 local function installSignalHandler()
     local ok, posix = pcall(require, "posix.signal")
     if not ok or not posix then
@@ -190,7 +191,11 @@ function Monitor.start(conf, opts)
                 Logger.debug(string.format("Monitor: instance healthy: %s", name))
             else
                 Logger.warn(string.format("Monitor: instance not healthy: %s", name))
-                if isRecovering(id) then
+                -- A clone that has no logged-in account and low RSS is treated as idle
+                -- (low memory is expected on the login screen). Never force-recover it.
+                if status == "nologin" then
+                    Logger.debug(string.format("Monitor: instance %s not logged in; treating as idle (no recovery)", name))
+                elseif isRecovering(id) then
                     Logger.info(string.format("Monitor: recovery already in progress for %s; skipping", name))
                 else
                     -- mark as recovering and run recovery (synchronous). This avoids overlapping recoveries.

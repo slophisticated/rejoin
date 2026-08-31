@@ -16,15 +16,13 @@ Rejoin Engine adalah tools otomatisasi berbasis **Lua** yang berjalan di **Termu
 - **Auto Detect Clone** — Setup Wizard otomatis mendeteksi app/clone Roblox yang terinstall lewat `cmd package resolve-activity`, jadi clone dengan package name di-rename (mis. `com.apengjers.v3`) tetap ketahuan.
 - **Launch tiap clone ditarget package** — membuka app clone lewat `am start -a MAIN -c LAUNCHER -p <pkg>` (menarget package eksplisit, jadi tiap clone dibuka sbg task sendiri; tidak butuh `cmd package resolve-activity` yang sering tidak tersedia di Termux non-root). `monkey` & resolve-activity hanya cadangan.
 - **Monitor** — loop tunggal, cek tiap instance bergantian. Jika satu instance mati, hanya instance itu yang di-recovery; instance lain tetap diproses.
-- **Live status per instance** — monitor menampilkan status tiap instance (`offline`, `starting`, `ingame`, `stuck`, `freeze`, `recovery`) setiap siklus.
-- **Auto relaunch freeze** — app yang freeze/stuck lebih dari `freezeTimeout` (default 5 menit) otomatis di-force-stop & di-relaunch.
-- **RSS-based health** — clone dideteksi benar-benar jalan (bukan sekadar proses hidup) lewat RSS ≥ `minRss` (default 300 MB). Clone yang di-close (stub RSS rendah) otomatis di-relaunch.
+- **Live status per instance** — monitor menampilkan status tiap instance (`offline`, `starting`, `ingame`, `nologin`, `stuck`, `freeze`, `recovery`) setiap siklus.
+- **Auto relaunch freeze** — app yang freeze/stuck lebih dari `freezeTimeout` (default 300 detik / 5 menit) otomatis di-force-stop & di-relaunch.
+- **RSS-based health** — clone dideteksi benar-benar jalan (bukan sekadar proses hidup) lewat RSS ≥ `minRss` (default 200 MB). Clone yang di-close (stub RSS rendah) otomatis di-relaunch.
+- **Skip restart jika belum login** — clone yang **belum punya akun Roblox login** dan RSS rendah dianggap idle (status `NoLogin`), tidak pernah di-force-relaunch (login screen wajar RSS kecil). Deteksi otomatis via WebView cookie (`.ROBLOSECURITY`) — lihat `Auth` / `cookiePath`.
 - **Optimasi RAM/CPU** — semua clone di-deprioritze (`renice 19` + `ionice idle`) supaya 4 floating window tidak rebutan CPU/RAM. Di-apply ulang tiap launch/recovery (karena pid berubah).
-- **Recovery** — force-stop → launch → inject AutoExecute → buka game/private server → lanjut monitoring. Dicoba berulang (sesuai `recoveryRetries`).
-- **AutoExecute (global)** — satu script dipakai semua instance.
-- **Auto Join** — buka link game/private server dari tiap instance secara otomatis saat recovery.
-- **Launch All + Monitor** — shortcut di Main Menu meluncurkan semua instance sekaligus lalu langsung masuk monitor.
-- **CLI Menu** — Launch All, Instances, Settings, Logs, Start Monitor.
+- **Recovery** — force-stop → launch → buka game/private server → lanjut monitoring. Dicoba berulang (sesuai `recoveryRetries`).
+- **AutoExecute / Script Manager** — kelola **banyak script `.lua`** (global, dipakai semua instance) lewat menu `6) AutoExecute Manager`: List / Create / Edit / Delete / Deploy. Script di-deploy manual ke folder autoexecute tiap aplikasi (`appAutoExecutePath`) via root. Rejoin adalah pengelola script — **semua logika ditulis user** di dalam file script.
 
 ---
 
@@ -112,8 +110,8 @@ Contoh:
 
 ```lua
 return {
-    -- AutoExecute bersifat GLOBAL: semua instance pakai script yang sama.
-    autoExecute = "data/autoexecute/sample_AutoExecute.lua",
+    -- AutoExecute kini Script Manager GLOBAL: script disimpan di autoExecuteDeployPath,
+    -- di-deploy manual via menu "Script Manager" ke tiap aplikasi (appAutoExecutePath).
     monitorInterval = 5,       -- detik antar siklus monitor
     recoveryDelay = 3,         -- jeda antar percobaan recovery
     recoveryRetries = 3,       -- berapa kali recovery dicoba
@@ -122,6 +120,10 @@ return {
     autoExecuteDeployPath = "data/autoexecute",
     logPath = "data/rejoin.log",
 
+    -- Wajib diisi untuk Deploy (Script Manager): folder autoexecute di aplikasi.
+    -- Butuh root. Contoh: "/data/data/com.roblox.client/files/autoexecute"
+    appAutoExecutePath = "",
+
     -- Filter cepat opsional untuk Auto Detect (mis. "com.apengjers."). Kosong = nonaktif.
     clonePackagePrefix = "",
 
@@ -129,7 +131,7 @@ return {
     freezeTimeout = 300,        -- detik app boleh freeze sebelum di-relaunch (5 menit)
     gracePeriod = 30,           -- detik setelah launch sebelum dinilai ingame vs stuck
     anrCheckEnabled = true,     -- deteksi ANR via logcat (best-effort, lebih andal dgn root)
-    minRss = 300,               -- MB ambang proses clone dianggap AKTIF (RSS)
+    minRss = 200,               -- MB ambang proses clone dianggap AKTIF (RSS)
 
     -- Deprioritze semua clone siram RAM/CPU.
     optimizer = {
@@ -144,6 +146,8 @@ return {
             name = "Main",
             package = "com.apengjers.v3",
             privateServer = "https://www.roblox.com/games/107778070777162/Steal-An-Egg",
+            -- cookiePath (opsional): lokasi DB cookie WebView clone utk deteksi login.
+            -- Kosong = pakai default /data/data/<package>/app_webview/Default/Cookies
         },
         {
             id = 2,
@@ -193,6 +197,7 @@ rejoin/
 │   ├── setup.lua               # pastikan config ada
 │   ├── setup_wizard.lua        # wizard setup (auto-detect + manual)
 │   ├── instances_cli.lua       # menu instances
+│   ├── autoexecute_cli.lua     # menu AutoExecute / Script Manager
 │   ├── settings_cli.lua        # menu settings
 │   ├── logs_cli.lua            # viewer log
 │   └── runtime.lua             # flag runtime (dry-run)
@@ -202,7 +207,8 @@ rejoin/
 │   ├── monitor.lua             # loop monitor
 │   ├── recovery.lua            # engine recovery
 │   ├── optimizer.lua           # renice/ionice deprioritasi clone
-│   └── autoexecute.lua         # deploy/inject AutoExecute
+│   ├── autoexecute.lua         # Script Manager (list/save/remove/deploy global)
+│   └── auth.lua                # deteksi login via cookie (.ROBLOSECURITY)
 ├── utils/
 │   ├── shell.lua               # eksekusi shell (dengan timeout anti-hang)
 │   ├── probe_log.lua           # auto-debug per siklus -> launch.log
@@ -223,15 +229,21 @@ rejoin/
 - `3) Settings`
 - `4) View Logs`
 - `5) Start Monitor`
-- `6) Exit`
+- `6) AutoExecute Manager`
+- `7) Exit`
 
 ### Instances Manager
 - List, Add, Edit, Delete instance
 
+### AutoExecute / Script Manager (menu `6`)
+- `1) List`, `2) Create`, `3) Edit (overwrite)`, `4) Delete`, `5) Deploy`, `6) Exit`
+- Create/Edit: ketik kode baris-per-baris, akhiri dengan baris **`END`** di paling bawah (baris `END` tidak disimpan). Setelah create ditanya "Mau tambah lagi? (y/n)".
+- Deploy menyalin tiap script ke `appAutoExecutePath/<name>.lua` di tiap instance (via root). Wajib isi `appAutoExecutePath` di config.
+
 ### Settings
 - `monitorInterval`, `recoveryDelay`, `recoveryRetries`, `checkTimeout`
 - `debug` (toggle)
-- `autoExecute` (global), `autoExecuteDeployPath`, `logPath`
+- `appAutoExecutePath`, `autoExecuteDeployPath`, `logPath`
 - `clonePackagePrefix`
 - `freezeTimeout` (detik sebelum relaunch app freeze), `gracePeriod`, `anrCheckEnabled`
 

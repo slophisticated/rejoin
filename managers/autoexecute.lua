@@ -3,78 +3,147 @@ local File = require("utils.file")
 local Config = require("core.config")
 local Shell = require("utils.shell")
 
+-- Script Manager.
+--
+-- The user writes `.lua` scripts from Termux; Rejoin stores them GLOBALLY (shared by
+-- every instance) under the deploy folder (`conf.autoExecuteDeployPath`, default
+-- `data/autoexecute`) and, on request, copies them into each clone's application
+-- autoexecute folder via root (`conf.appAutoExecutePath`).
+--
+-- Rejoin is only a SCRIPT MANAGER: the user writes all the actual logic (detection /
+-- response / farming) inside each script. Deployment is manual (from the menu).
+--
+-- The target app folder may contain many `.lua` files; each script `<name>.lua` is
+-- copied as-is to `<appAutoExecutePath>/<name>.lua`.
+
 local AutoExecute = {}
 
--- Try to perform a su-backed copy into the app's data area (best-effort). This requires root and app-specific path knowledge.
--- format: cp src dest or su -c 'cp src dest'
-local function trySuCopy(src, dest)
-    -- Prefer direct cp if possible
-    local cmd = string.format("cp '%s' '%s'", src, dest)
-    local ok = pcall(function() return Shell.exec(cmd) end)
-    if ok then
-        return true
-    end
-    -- Try su wrapper
-    local suCmd = string.format("su -c 'cp %s %s'", src, dest)
-    local ok2 = pcall(function() return Shell.exec(suCmd) end)
-    if ok2 then
-        return true
-    end
-    return false
+-- Where global scripts live on the Termux side.
+function AutoExecute.dir()
+    local conf = Config.get() or {}
+    return conf.autoExecuteDeployPath or "data/autoexecute"
 end
 
--- Deploys the AutoExecute script to a deploy directory and returns the deployed path.
-local function deployScriptForInstance(srcPath, instance)
-    local conf = Config.get() or {}
-    local deployBase = conf.autoExecuteDeployPath or "data/autoexecute"
-    local pkg = instance and (instance.package or tostring(instance.id or "unknown")) or "unknown"
-    -- sanitize package for filename
-    local safePkg = pkg:gsub("[^%w%._-]", "_")
-    local dest = string.format("%s/%s_AutoExecute.lua", deployBase, safePkg)
-    local ok, err = File.copy(srcPath, dest)
+-- List global scripts (names of `*.lua`) in the deploy folder.
+function AutoExecute.list()
+    local dir = AutoExecute.dir()
+    local names, err = File.listDir(dir, "lua")
+    if not names then return nil, err end
+    local out = {}
+    for _, n in ipairs(names) do
+        local p = dir .. "/" .. n
+        local size = 0
+        local content = File.read(p)
+        if content then size = #content end
+        table.insert(out, { name = n, size = size, path = p })
+    end
+    return out
+end
+
+-- Save (create or overwrite) a global script.
+function AutoExecute.save(name, content)
+    name = name and name:gsub("[^%w%._%-]", "_") or ""
+    name = name:gsub("%.lua$", "")
+    if name == "" then return false, "invalid_name" end
+    local file = AutoExecute.dir() .. "/" .. name .. ".lua"
+    local ok, err = File.write(file, content)
     if not ok then return false, err end
-    return true, dest
+    return true, file
 end
 
--- Inject AutoExecute script into an instance. This attempts to copy into app storage (root) if possible, otherwise deploys to a shared folder.
-function AutoExecute.inject(instance)
-    -- AutoExecute is global: instance path overrides, but the shared script is the default.
+-- Read a global script's content back.
+function AutoExecute.read(name)
+    name = name and name:gsub("%.lua$", "") or ""
+    if name == "" then return nil, "invalid_name" end
+    return File.read(AutoExecute.dir() .. "/" .. name .. ".lua")
+end
+
+-- Remove a global script. Returns (true) or (false, err).
+function AutoExecute.remove(name)
+    name = name and name:gsub("%.lua$", "") or ""
+    if name == "" then return false, "invalid_name" end
+    local file = AutoExecute.dir() .. "/" .. name .. ".lua"
+    if not File.exists(file) then return false, "not_found" end
+    local ok = os.remove(file)
+    if not ok then return false, "remove_failed" end
+    return true
+end
+
+-- Resolve the target application autoexecute path configured for an instance.
+-- The user MUST set config.appAutoExecutePath (used for every instance).
+-- Returns (destBase, effective) or (nil, errMsg).
+local function appDestBase()
     local conf = Config.get() or {}
-    local path = instance.autoExecutePath or (instance.autoExecute and instance.autoExecute.path) or conf.autoExecute
-    if not path or path == "" then
-        Logger.debug("AutoExecute: no script path provided for instance")
-        return false, "no_script"
+    local base = conf.appAutoExecutePath
+    if not base or base == "" then
+        return nil, "appAutoExecutePath is empty (set it in config/config.lua)"
     end
+    return base, true
+end
 
-    if not File.exists(path) then
-        Logger.warn("AutoExecute: script not found: " .. tostring(path))
-        return false, "not_found"
-    end
-
-    -- Try best-effort su copy into app data (placeholder path). The exact destination depends on the target package and installation.
-    local appDestBase = conf.appAutoExecutePath or nil -- if set by user
-    if appDestBase then
-        local pkg = instance and instance.package or "unknown"
-        local safePkg = pkg:gsub("[^%w%._-]", "_")
-        local appDest = string.format("%s/%s_AutoExecute.lua", appDestBase, safePkg)
-        local ok, _ = trySuCopy(path, appDest)
-        if ok then
-            Logger.info("AutoExecute: deployed script into app storage: " .. tostring(appDest))
-            return true, appDest
-        else
-            Logger.debug("AutoExecute: su copy into app storage failed; falling back to deploy folder")
+-- Copy one script into one instance's app folder over root. Returns (true, dest) or
+-- (false, err). Root (su) is used to write into /data/data/<pkg>/...
+local function suCopyIntoApp(src, dest)
+    local opts = "2>/dev/null"
+    -- Try direct cp, then su-wrapped cp.
+    local cmds = {
+        string.format("cp '%s' '%s' %s", src, dest, opts),
+        string.format("su -c 'cp %s %s' %s", src, dest, opts),
+    }
+    for _, cmd in ipairs(cmds) do
+        local ok, _ = pcall(function() return Shell.exec(cmd) end)
+        if ok and File.exists(dest) then
+            return true, dest
         end
     end
+    return false, "copy_failed"
+end
 
-    -- Fallback: deploy script to shared deploy folder
-    local ok2, deployedOrErr = deployScriptForInstance(path, instance)
-    if not ok2 then
-        Logger.error("AutoExecute: failed to deploy script: " .. tostring(deployedOrErr))
-        return false, deployedOrErr
+-- Deploy a single global script to every configured instance.
+function AutoExecute.deployOne(name)
+    name = name and name:gsub("%.lua$", "") or ""
+    if name == "" then return false, "invalid_name" end
+    local src = AutoExecute.dir() .. "/" .. name .. ".lua"
+    if not File.exists(src) then return false, "not_found" end
+
+    local base, err = appDestBase()
+    if not base then return false, err or "no_app_path" end
+
+    local conf = Config.get() or {}
+    local okCount, errors = 0, {}
+    for _, inst in ipairs(conf.instances or {}) do
+        local dest = base .. "/" .. name .. ".lua"
+        local ok, e = suCopyIntoApp(src, dest)
+        if ok then
+            okCount = okCount + 1
+            Logger.info(string.format("AutoExecute: deployed %s -> %s (%s)", name, dest, tostring(inst.package)))
+        else
+            table.insert(errors, string.format("%s: %s", tostring(inst.package or "?"), tostring(e)))
+        end
     end
+    if okCount == 0 then
+        return false, table.concat(errors, "; ")
+    end
+    return true, { ok = okCount, errors = errors }
+end
 
-    Logger.info("AutoExecute: deployed script to " .. tostring(deployedOrErr) .. ". (Manual in-app injection may be required)")
-    return true, deployedOrErr
+-- Deploy every global script to every configured instance.
+function AutoExecute.deployAll()
+    local list, err = AutoExecute.list()
+    if not list then return false, err or "no_scripts" end
+    if #list == 0 then return false, "no_scripts" end
+    local ok, res = true, { okCount = 0, errors = {} }
+    for _, s in ipairs(list) do
+        local name = s.name:gsub("%.lua$", "")
+        local okOne, resOne = AutoExecute.deployOne(name)
+        if okOne then
+            res.okCount = res.okCount + (resOne and resOne.ok or 1)
+        else
+            ok = false
+            table.insert(res.errors, string.format("%s: %s", name, tostring(resOne)))
+        end
+    end
+    return ok, res
 end
 
 return AutoExecute

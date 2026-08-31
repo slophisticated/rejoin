@@ -1,6 +1,5 @@
 local Logger = require("core.logger")
 local APK = require("managers.apk")
-local AutoExecute = require("managers.autoexecute")
 local UtilsAndroid = require("utils.android")
 local Timer = require("utils.timer")
 local Config = require("core.config")
@@ -263,12 +262,6 @@ function Recovery.checkAndRecover(instance)
 
         if healthy then
             Logger.info("Recovery: instance appears healthy: " .. tostring(instance.name or pkg))
-
-            -- Inject AutoExecute (best-effort)
-            local ok2, err = AutoExecute.inject(instance)
-            if not ok2 then
-                Logger.warn("Recovery: autoexecute inject failed: " .. tostring(err))
-            end
 
             -- Open game / private server URL if present (normalize to a safe form first)
             openGameLink(instance)

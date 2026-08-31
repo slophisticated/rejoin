@@ -1,4 +1,6 @@
 -- Sample AutoExecute script (placeholder)
--- AutoExecute is GLOBAL: set config.autoExecute to this file's path, or place it in the deploy folder on the device.
+-- In the new Script Manager model, write scripts from the "6) AutoExecute Manager" menu;
+-- they are stored under data/autoexecute/ and deployed to the app's autoExecutePath.
+-- This file is just an example of the expected content.
 
 print("AutoExecute: sample script running")

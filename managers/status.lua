@@ -1,12 +1,13 @@
 local Logger = require("core.logger")
 local APK = require("managers.apk")
+local Auth = require("managers.auth")
 local Shell = require("utils.shell")
 
 local Status = {}
 
 -- Per-instance runtime state.
 -- instanceId -> {
---   status        = "offline"|"starting"|"ingame"|"stuck"|"freeze"|"recovery"
+--   status        = "offline"|"starting"|"ingame"|"stuck"|"freeze"|"nologin"|"recovery"
 --   healthySince  = timestamp when the process was first seen running
 --   stuckSince    = timestamp when stuck/freeze was first detected (5-min timeout base)
 --   anrSeen       = last logcat sequence id that reported an ANR for this package
@@ -14,13 +15,13 @@ local Status = {}
 local states = {}
 
 -- Defaults / config gate for freeze detection.
-local freezeTimeout = 60   -- seconds (RSS-low/proc-stub or ANR -> wait, then relaunch)
+local freezeTimeout = 300  -- seconds (RSS-low/proc-stub or ANR -> wait, then relaunch)
 local gracePeriod = 30     -- seconds after healthy before judging ingame vs stuck
 local anrEnabled = true
 
 function Status.configure(conf)
     conf = conf or {}
-    freezeTimeout = tonumber(conf.freezeTimeout) or 60
+    freezeTimeout = tonumber(conf.freezeTimeout) or 300
     gracePeriod = tonumber(conf.gracePeriod) or 30
     anrEnabled = conf.anrCheckEnabled ~= false -- default true
 end
@@ -143,9 +144,22 @@ function Status.check(instance)
     end
 
     if not active then
-        -- Process alive but RSS below the threshold (force-close stub): the clone is
-        -- effectively not running any real UI. Show Freeze; after freezeTimeout the
-        -- monitor force-stops and relaunches it.
+        -- Process alive but RSS below the threshold (force-close stub, or a clone that
+        -- is merely sitting on the login screen with little memory).
+        --
+        -- If the clone has NO logged-in account (Auth.isLoggedIn == false) it is treated
+        -- as idle: low RSS is expected, so we mark it "nologin" and never start the
+        -- freeze/relaunch clock. On a failed detection (nil) we fall back to the normal
+        -- freeze handling so existing behavior is preserved.
+        local loggedIn = Auth.isLoggedIn(instance)
+        if loggedIn == false then
+            s.status = "nologin"
+            s.stuckSince = nil
+            s.healthySince = nil
+            return s.status
+        end
+        -- Otherwise: the clone is genuinely frozen (force-close stub). Show Freeze;
+        -- after freezeTimeout the monitor force-stops and relaunches it.
         s.status = "freeze"
         if not s.stuckSince then s.stuckSince = now end
         s.healthySince = nil
@@ -223,6 +237,7 @@ local STATUS_UI = {
     resetting= { "Resetting", C.yellow },
     starting = { "Starting", C.blue },
     offline  = { "Offline",  C.dim },
+    nologin  = { "NoLogin",  C.dim },
 }
 
 -- Best-effort memory + storage readout, cached to avoid shell cost every cycle.

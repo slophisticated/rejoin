@@ -225,6 +225,30 @@ Initial Project
 - `main.lua`: new `--auto-launch` flag — `lua main.lua --headless --start-monitor --auto-launch` behaves exactly like Menu 1 (launch all clones + optimizer, then monitor) without a terminal prompt.
 - New `termux-boot.sh` template + README section: auto-open Termux and run Menu 1 on every device boot via the Termux:Boot plugin (`~/termux/boot/start-rejoin.sh`).
 
+## v0.7.0 — AutoExecute Script Manager + no-restart-if-not-logged-in
+
+- **AutoExecute is now a Script Manager (not per-package injection)**:
+  - `managers/autoexecute.lua` rebuilt: `dir` / `list` / `save` / `read` / `remove` / `deployOne` / `deployAll`. Scripts are stored GLOBALLY under `autoExecuteDeployPath` (default `data/autoexecute`) and copied as-is (root, `su`) into each application's `appAutoExecutePath/<name>.lua`. Removed the old single-file `inject`/`deployScriptForInstance` model.
+  - New `core/autoexecute_cli.lua`: Script Manager submenu (List / Create / Edit / Delete / Deploy / Exit). Code is typed line-by-line and ends with a bare `END` line (which is NOT saved); after a create it asks "Mau tambah lagi? (y/n)" and loops. Deploy requires `config.appAutoExecutePath` (set it — the app's autoexecute folder; root needed to write app data).
+  - `main.lua`: new menu option `6) AutoExecute Manager` (Exit moved to `7)`).
+  - `config/template.lua` + `core/settings_cli.lua`: removed the obsolete global `config.autoExecute`; added/edited `appAutoExecutePath` setting.
+  - `managers/recovery.lua`: removed the old `AutoExecute.inject` call during recovery.
+  - `utils/file.lua`: new `File.listDir(path, ext)` used to list global scripts.
+
+- **Do not restart a clone that has no logged-in account**:
+  - New `managers/auth.lua`: `Auth.isLoggedIn(instance)` reads the clone's WebView cookie DB (default `/data/data/<pkg>/app_webview/Default/Cookies`, override per-instance via `cookiePath`) and looks for a `.ROBLOSECURITY` token (via root `grep -a`). Returns `true`/`false`/`nil`.
+  - `managers/status.lua`: when a clone is low-RSS AND not logged-in (`isLoggedIn == false`) it is marked **`nologin`** instead of `freeze` — the freeze/relaunch clock never starts for it.
+  - `managers/monitor.lua`: a `nologin` clone is not recovered/relaunched (low RSS is expected on the login screen). On a failed detection (`nil`) behavior falls back to the normal freeze/relaunch so nothing regresses.
+  - Dashboard shows the new `NoLogin` (dim) status.
+
+- **Tuned values**: `freezeTimeout` 60 → **300 s** (uniform for all freeze cases) in `config/config.lua`, `config/template.lua`, and the `managers/status.lua` default; `minRss` 300 → **200 MB** in `config/template.lua` (running `~1 GB` vs stub `~188 MB`).
+
+## v0.7.1 — Ctrl+C actually stops the program
+
+- **Root cause**: `Timer.sleep` fell back to `os.execute("sleep ...")`. POSIX `system()` **blocks SIGINT** while the child `sleep` runs, so Ctrl+C (SIGINT) never reached the Lua process while the monitor was waiting — the tool looked unstoppable (and without `lua-posix` the signal was effectively swallowed).
+- `utils/timer.lua`: the no-socket fallback is now a **busy-wait** on `os.clock()` (still uses `socket.sleep` when luasocket is present). No `os.execute("sleep")` anymore → signals are never blocked, so Ctrl+C is delivered immediately.
+- Result: Ctrl+C stops the monitor and exits the program right away (cleanly with `lua-posix`; via default SIGINT termination without it). Tradeoff: a little CPU spin during the waits, no extra install needed.
+
 ## Upcoming
 
 - Shell Wrapper
